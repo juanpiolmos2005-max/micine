@@ -61,10 +61,10 @@ jobs:
           fi
 
       - name: Guardar la clave de TMDB como secreto
-        run: supabase secrets set --project-ref "$PROJECT_REF" TMDB_API_KEY="$TMDB_API_KEY"
+        run: supabase secrets set --project-ref "$PROJECT_REF" --yes TMDB_API_KEY="$TMDB_API_KEY"
 
       - name: Publicar el servidor de TMDB
-        run: supabase functions deploy tmdb --project-ref "$PROJECT_REF" --no-verify-jwt
+        run: supabase functions deploy tmdb --project-ref "$PROJECT_REF" --no-verify-jwt --use-api --yes
 
       - name: Configurar cuentas (dirección del sitio, sin mail de confirmación)
         run: |
