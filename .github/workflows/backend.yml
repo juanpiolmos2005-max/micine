@@ -51,7 +51,14 @@ jobs:
         run: supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
 
       - name: Crear / actualizar tablas
-        run: supabase db push --password "$SUPABASE_DB_PASSWORD" --include-all
+        run: |
+          # La contraseña llega por la variable SUPABASE_DB_PASSWORD.
+          # Las versiones nuevas de la CLI usan --remote; las anteriores, --linked.
+          if supabase db push --help | grep -q -- '--remote'; then
+            supabase db push --remote --include-all --yes
+          else
+            supabase db push --linked --include-all --yes
+          fi
 
       - name: Guardar la clave de TMDB como secreto
         run: supabase secrets set --project-ref "$PROJECT_REF" TMDB_API_KEY="$TMDB_API_KEY"
