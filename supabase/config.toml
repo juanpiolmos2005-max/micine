@@ -1,0 +1,4 @@
+project_id = "micine"
+
+[functions.tmdb]
+verify_jwt = false
