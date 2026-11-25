@@ -144,13 +144,13 @@ async function loadConns() {
 const accepted = () => D.conns.filter(c => c.status === 'accepted');
 function cloudErr(r) { if (r && r.error) { console.error(r.error); toast('No se pudo guardar: revisá tu conexión'); } }
 
-function setStatus(k, status) {
+function setStatus(k, status, opts = {}) {
   const n = REG[k] || D.watched[k] || D.want[k];
   if (!n) return false;
   if (needsAccount()) { askAccount(); return false; }
   const prev = D.watched[k] || {};
   const rec = { id: n.id, type: n.type, title: n.title, year: n.year || '', poster: n.poster || null, vote: n.vote || 0, at: Date.now(), g: n.g || prev.g || [] };
-  if (status === 'watched') Object.assign(rec, { rating: prev.rating || null, review: prev.review || '', watched_on: prev.watched_on !== undefined && D.watched[k] ? prev.watched_on : today() });
+  if (status === 'watched') Object.assign(rec, { rating: prev.rating || null, review: prev.review || '', watched_on: opts.watched_on !== undefined ? opts.watched_on : (prev.watched_on !== undefined && D.watched[k] ? prev.watched_on : today()) });
   delete D.watched[k]; delete D.want[k];
   if (status) D[status === 'watched' ? 'watched' : 'want'][k] = rec;
   if (CLOUD) {
@@ -748,15 +748,17 @@ async function renderCouple(cid) {
   const vimos = list.filter(([, v]) => v.status === 'watched').sort((a, b) => b[1].at - a[1].at), queremos = list.filter(([, v]) => v.status === 'want').sort((a, b) => b[1].at - a[1].at);
   app.innerHTML = `<a class="back" href="#juntos">← Juntos</a>
   <section class="couple"><span class="pair big">${myAvatar(96)}${pAvatar(c.other, 96)}</span><div><h2 class="sec">Vos y ${esc(pName(c.other))}</h2>
-   <div class="acts"><a class="btn" href="#ruleta-${cid}">${icon(DICE, 20)}¿Qué vemos hoy?</a><a class="btn ghost" href="#u-${esc(c.other.username)}">Ver perfil de ${esc(pName(c.other))}</a></div></div></section>
-  <div class="tools"><div class="seg" id="jt"><button data-v="vimos" aria-pressed="${jtab.tab === 'vimos'}">Vimos juntos (${vimos.length})</button><button data-v="queremos" aria-pressed="${jtab.tab === 'queremos'}">Queremos ver (${queremos.length})</button><button data-v="recs" aria-pressed="${jtab.tab === 'recs'}">Para ver juntos</button></div></div>
+   <div class="acts"><a class="btn" href="#ruleta-${cid}">${icon(DICE, 20)}¿Qué vemos hoy?</a><button class="btn ghost" id="goadd">+ Agregar las que ya vimos</button><a class="btn ghost" href="#u-${esc(c.other.username)}">Ver perfil de ${esc(pName(c.other))}</a></div></div></section>
+  <div class="tools"><div class="seg" id="jt"><button data-v="vimos" aria-pressed="${jtab.tab === 'vimos'}">Vimos juntos (${vimos.length})</button><button data-v="queremos" aria-pressed="${jtab.tab === 'queremos'}">Queremos ver (${queremos.length})</button><button data-v="recs" aria-pressed="${jtab.tab === 'recs'}">Para ver juntos</button><button data-v="agregar" aria-pressed="${jtab.tab === 'agregar'}">+ Agregar vistas antes</button></div></div>
   <div id="jbody"></div>
   <p class="muted" style="margin-top:34px;font-size:14px">Para sumar títulos a esta lista, abrí cualquier peli o serie y tocá “La vimos juntos” o “Queremos verla”. <button class="linkbtn" data-remove="${cid}">Desconectarse</button></p>`;
   $('#jt').onclick = e => { if (e.target.dataset.v) { jtab.tab = e.target.dataset.v; renderCouple(cid); } };
+  $('#goadd').onclick = () => { jtab.tab = 'agregar'; renderCouple(cid); setTimeout(() => $('#jt')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); };
   const body = $('#jbody');
+  if (jtab.tab === 'agregar') return renderAddTogether(cid, c, body);
   if (jtab.tab !== 'recs') {
     const l = jtab.tab === 'vimos' ? vimos : queremos;
-    body.innerHTML = l.length ? `<div class="grid">${l.map(([, v]) => card(v, v.by && v.by !== user.id ? `<small class="why">Lo sumó ${esc(pName(c.other))}</small>` : '')).join('')}</div>` : emptyBox(jtab.tab === 'vimos' ? 'Todavía no marcaron nada como visto juntos.' : 'Su lista para ver juntos está vacía. Probá la ruleta o las recomendaciones.');
+    body.innerHTML = l.length ? `<div class="grid">${l.map(([, v]) => card(v, v.by && v.by !== user.id ? `<small class="why">Lo sumó ${esc(pName(c.other))}</small>` : '')).join('')}</div>` : emptyBox(jtab.tab === 'vimos' ? 'Todavía no marcaron nada como visto juntos.<br><br><button class="btn" data-jtab="agregar">+ Agregar las que ya vieron juntos</button>' : 'Su lista para ver juntos está vacía. Probá la ruleta o las recomendaciones.');
     return;
   }
   body.innerHTML = spinner('Cruzando sus gustos…');
@@ -781,6 +783,73 @@ async function renderCouple(cid) {
     (!cr.recs.length && !cr.g.length ? emptyBox('Necesito un poco más de datos: marquen y puntúen algunas pelis, o elijan sus géneros favoritos en el perfil.') : '') +
     `<button class="btn ghost more" id="rrc">Actualizar</button>`;
   $('#rrc').onclick = () => { delete coupleRecs[cid]; delete D.plib[c.otherId]; renderCouple(cid); };
+}
+
+/* ===================== Agregar lo que ya vieron juntos ===================== */
+const aj = { q: '', res: [], mine: true, loading: false };
+const inTogether = (cid, k) => (D.cpl[cid] || {})[k]?.status === 'watched';
+function addCard(cid, n) {
+  const k = kOf(n); REG[k] = Object.assign(REG[k] || {}, n);
+  const on = inTogether(cid, k);
+  return `<article class="card addcard${on ? ' added' : ''}" data-k="${k}">
+  <button class="poster" data-open="${k}" aria-label="${esc(n.title)}">${n.poster ? `<img loading="lazy" src="${img(n.poster)}" alt="">` : `<span>${esc(n.title)}</span>`}</button>
+  <div class="meta"><b>${esc(n.title)}</b><small>${n.year || '—'} · ${n.type === 'tv' ? 'Serie' : 'Película'}</small></div>
+  <button class="addj" data-addj="${cid}|${k}" aria-pressed="${on}">${on ? '✓ La vimos juntos' : '+ La vimos juntos'}</button></article>`;
+}
+async function addTogether(cid, keys, add) {
+  const list = D.cpl[cid]; if (!list) return;
+  const rows = [];
+  for (const k of keys) {
+    const n = REG[k] || D.watched[k] || D.want[k]; if (!n) continue;
+    if (add) {
+      if (!inTogether(cid, k)) {
+        list[k] = { ...n, status: 'watched', at: Date.now(), by: user.id, watched_on: null };
+        rows.push({ connection_id: cid, media_key: k, status: 'watched', tmdb_id: n.id, media_type: n.type, title: n.title, poster: n.poster || null, year: n.year || '', vote: n.vote || 0, watched_on: null });
+      }
+      if (aj.mine && !D.watched[k]) setStatus(k, 'watched', { watched_on: null });
+    } else if (list[k]) {
+      delete list[k];
+      cloudErr(await sb.from('couple_items').delete().eq('connection_id', cid).eq('media_key', k));
+    }
+  }
+  if (rows.length) cloudErr(await sb.from('couple_items').upsert(rows));
+  coupleRecs = {};
+  document.querySelectorAll('[data-addj]').forEach(b => { const [c2, k] = b.dataset.addj.split('|'); const on = inTogether(c2, k); b.setAttribute('aria-pressed', on); b.textContent = on ? '✓ La vimos juntos' : '+ La vimos juntos'; b.closest('.card')?.classList.toggle('added', on); });
+  const cnt = Object.values(list).filter(v => v.status === 'watched').length;
+  const tab = document.querySelector('#jt [data-v=vimos]'); if (tab) tab.textContent = `Vimos juntos (${cnt})`;
+  const bulk = $('#ajall'); if (bulk) { const left = JSON.parse(bulk.dataset.keys).filter(k => !inTogether(cid, k)).length; bulk.hidden = !left; bulk.textContent = left === 1 ? 'Agregarla' : `Agregar las ${left}`; }
+  if (add) toast(rows.length > 1 ? `Agregadas ${rows.length} a “vimos juntos”` : 'Agregada a “vimos juntos”');
+}
+async function renderAddTogether(cid, c, body) {
+  body.innerHTML = `<section class="box addj-box">
+   <h3>¿Qué vieron juntos antes?</h3>
+   <p class="muted" style="margin-top:-4px">Buscá cada peli o serie y tocá “+ La vimos juntos”. Se guardan sin fecha, así no se mezclan con el resumen del mes.</p>
+   <form class="tools" id="ajf" role="search" style="margin-bottom:6px"><div class="search">${icon(SEARCH, 20)}<input id="ajq" type="search" enterkeyhint="search" placeholder="Ej: Titanic, Friends, Toy Story…" value="${esc(aj.q)}" aria-label="Buscar lo que vieron juntos"></div><button class="btn">Buscar</button></form>
+   <label class="chk"><input type="checkbox" id="ajmine" ${aj.mine ? 'checked' : ''}> Marcarlas también como vistas en mi lista</label>
+   <div id="ajres" style="margin-top:12px"></div></section>
+  <div id="ajboth">${spinner('Buscando lo que vieron los dos…')}</div>`;
+  $('#ajmine').onchange = e => { aj.mine = e.target.checked; };
+  const drawRes = () => {
+    const box = $('#ajres'); if (!box) return;
+    box.innerHTML = aj.loading ? spinner() : aj.res.length ? `<div class="grid">${aj.res.map(n => addCard(cid, n)).join('')}</div>` : (aj.q ? emptyBox('No encontré nada con esa búsqueda.') : '');
+  };
+  $('#ajf').onsubmit = async e => {
+    e.preventDefault(); aj.q = $('#ajq').value.trim(); if (!aj.q) return; $('#ajq').blur();
+    aj.loading = true; drawRes();
+    try { aj.res = (await api('search/multi', { query: aj.q })).results.filter(r => r.media_type === 'movie' || r.media_type === 'tv').slice(0, 18).map(r => norm(r, r.media_type)); }
+    catch (er) { aj.res = []; toast(er.message); }
+    aj.loading = false; drawRes();
+  };
+  drawRes();
+  const pl = await partnerLib(c.otherId);
+  if (view !== 'juntos' || jtab.tab !== 'agregar' || !$('#ajboth')) return;
+  const both = Object.entries(D.watched).filter(([k]) => pl.watched[k]).map(([k, v]) => (REG[k] = Object.assign(REG[k] || {}, v)));
+  const left = both.filter(n => !inTogether(cid, kOf(n)));
+  $('#ajboth').innerHTML = both.length ? `<div class="headrow" style="margin-top:28px"><div><h3 class="row-t" style="margin:0">Las vieron los dos</h3><p class="muted" style="margin:4px 0 0">Están en tu lista y en la de ${esc(pName(c.other))}. ¿Alguna la vieron juntos?</p></div>
+    <button class="btn" id="ajall" data-keys='${esc(JSON.stringify(both.map(kOf)))}' ${left.length ? '' : 'hidden'}>${left.length === 1 ? 'Agregarla' : `Agregar las ${left.length}`}</button></div>
+    <div class="grid" style="margin-top:14px">${both.map(n => addCard(cid, n)).join('')}</div>`
+    : (pl.ok ? '' : '<p class="muted">No pude ver la lista de tu pareja.</p>');
+  const all = $('#ajall'); if (all) all.onclick = () => addTogether(cid, JSON.parse(all.dataset.keys), true);
 }
 
 /* ===================== Perfil de otra persona ===================== */
@@ -1201,7 +1270,7 @@ function closeDetail(fromPop) {
 
 /* ===================== Eventos ===================== */
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-tick],[data-open],[data-want],[data-follow],[data-person],[data-close],[data-cpl],[data-accept],[data-remove],[data-invite]');
+  const t = e.target.closest('[data-tick],[data-open],[data-want],[data-follow],[data-person],[data-close],[data-cpl],[data-accept],[data-remove],[data-invite],[data-addj],[data-jtab]');
   if (!t) { if (e.target.id === 'modal') closeDetail(); return; }
   if (t.dataset.tick) { e.preventDefault(); toggleWatched(t.dataset.tick); }
   else if (t.dataset.want) toggleWant(t.dataset.want);
@@ -1209,6 +1278,8 @@ document.addEventListener('click', e => {
   else if (t.dataset.follow) toggleFollow({ id: t.dataset.follow, name: t.dataset.name, photo: t.dataset.photo });
   else if (t.dataset.person) { closeDetail(true); go('actor-' + t.dataset.person); }
   else if (t.dataset.cpl) { const [cid, st] = t.dataset.cpl.split('|'); toggleCouple(cid, openKey, st); }
+  else if (t.dataset.addj) { const [cid, k] = t.dataset.addj.split('|'); addTogether(cid, [k], !inTogether(cid, k)); }
+  else if (t.dataset.jtab) { jtab.tab = t.dataset.jtab; render(); }
   else if (t.dataset.accept) connAction('accept', t.dataset.accept);
   else if (t.dataset.remove) { if (confirm('¿Seguro? Se borra también la lista en común.')) connAction('remove', t.dataset.remove); }
   else if (t.dataset.invite) invite(t.dataset.invite).then(() => { toast('Invitación enviada'); render(); }, er => toast(er.message));

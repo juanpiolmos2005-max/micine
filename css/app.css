@@ -339,3 +339,9 @@ label.chk.big span{color:var(--mute)}label.chk.big b{color:var(--ink)}
 .wall span{font-size:10px;padding:4px;display:block}
 .badge[hidden]{display:none!important}
 .ropts .seg{border-radius:16px}.ropts .seg button{flex:1 1 auto}
+.addj{display:block;width:100%;margin-top:8px;border:1px solid var(--acc);background:none;color:var(--acc);border-radius:10px;padding:8px 6px;font-weight:700;font-size:13px;min-height:40px}
+.addj[aria-pressed=true]{background:var(--acc);color:var(--on)}
+.addcard.added .poster img{filter:none}
+.addcard.added .poster{box-shadow:0 0 0 3px var(--acc),0 6px 18px #0004}
+#jt{flex-wrap:wrap}
+[hidden]{display:none!important}
