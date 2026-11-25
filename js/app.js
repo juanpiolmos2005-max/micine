@@ -426,7 +426,7 @@ async function findCharacter(q) {
       for (const id of ids) {
         const it = e.entities?.[id]; if (!it) continue;
         const p = (it.claims?.P175 || []).map(c => c.mainsnak?.datavalue?.value?.id).filter(Boolean);
-        if (p.length && matches(lab(it))) { chars.push({ label: lab(it), desc: des(it), p }); p.forEach(x => perf.add(x)); }
+        if (p.length && matches(lab(it)) && !/\b(single|song|canci[oó]n|[aá]lbum|album|videojuego|video game)\b/i.test(des(it))) { chars.push({ label: lab(it), desc: des(it), p }); p.forEach(x => perf.add(x)); }
       }
       if (!chars.length) return;
       const pe = await wd({ action: 'wbgetentities', ids: [...perf].slice(0, 45).join('|'), props: 'claims|labels', languages: 'es|en' });
