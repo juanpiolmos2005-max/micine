@@ -3,7 +3,7 @@
 
 const KEY = (Deno.env.get("TMDB_API_KEY") ?? "").trim();
 const IS_V3 = /^[a-f0-9]{32}$/i.test(KEY);
-const ALLOWED = /^(movie|tv|person|search|trending|discover|genre|collection|configuration)(\/[a-z0-9_\/-]*)?$/i;
+const ALLOWED = /^(movie|tv|person|search|trending|discover|genre|collection|configuration|watch)(\/[a-z0-9_\/-]*)?$/i;
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
