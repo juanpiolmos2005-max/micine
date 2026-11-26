@@ -29,7 +29,18 @@ try {
   }
 } catch (e) {}
 L.migrated = 1; L.meta = L.meta || {};
-const saveL = () => { try { localStorage.setItem(LS, JSON.stringify(L)); } catch (e) { L.meta = {}; try { localStorage.setItem(LS, JSON.stringify(L)); } catch (e2) {} } };
+// La identificación de las sagas (L.cache) y los datos del resumen (L.meta) van en claves propias:
+// si una se llena o falla, no arrastra a las otras.
+const LSC = 'micine.sagas', LSM = 'micine.meta';
+try { const c = JSON.parse(localStorage.getItem(LSC) || 'null'); if (c) L.cache = Object.assign(L.cache || {}, c); } catch (e) {}
+try { const m = JSON.parse(localStorage.getItem(LSM) || 'null'); if (m) L.meta = Object.assign(L.meta || {}, m); } catch (e) {}
+const put = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } };
+const saveL = () => {
+  const { cache, meta, ...rest } = L;
+  put(LS, rest);
+  put(LSC, cache);
+  if (!put(LSM, meta)) { L.meta = {}; put(LSM, {}); }
+};
 saveL();
 
 let user = null;
@@ -519,10 +530,7 @@ function renderSagas() {
   if (s) return renderSaga(s);
   const draw = () => {
     app.innerHTML = `<h2 class="sec">Sagas y universos</h2><p class="muted">Elegí una saga para verla en orden, tildar lo que ya viste y saber qué sigue.</p>
-    <div class="sagas" style="margin-top:16px">${SAGAS.map(s => {
-      const l = sagaList(s, 'crono', L.series[s.id] !== false), w = l.filter(isW).length;
-      return `<a class="saga" href="#saga-${s.id}" style="--c1:${s.c1};--c2:${s.c2};--img:${heroBg(s)}"><h3>${esc(s.name)}</h3><div><small>${w} de ${l.length} vistas</small><div class="prog"><i style="width:${l.length ? w / l.length * 100 : 0}%"></i></div></div></a>`;
-    }).join('')}</div>
+    <div class="sagas" style="margin-top:16px">${SAGAS.map(sagaCard).join('')}</div>
     <h3 class="row-t">Buscar otra saga</h3>
     <p class="muted">TMDB agrupa miles de colecciones: Rocky, James Bond, Shrek, Volver al futuro, El Padrino…</p>
     <form class="tools" id="colform"><div class="search"><input id="colq" enterkeyhint="search" placeholder="Ej: Rocky, Matrix, Shrek…" aria-label="Buscar saga"></div><button class="btn">Buscar</button></form><div id="colres"></div>`;
@@ -536,7 +544,26 @@ function renderSagas() {
     };
   };
   draw();
-  resolveHeroes().then(n => { if (n && view === 'sagas' && !arg) { document.querySelectorAll('.sagas a.saga[href^="#saga-"]').forEach(a => { const s = SAGAS.find(x => '#saga-' + x.id === a.getAttribute('href')); if (s) a.style.setProperty('--img', heroBg(s)); }); } });
+  (async () => {
+    await resolveHeroes();
+    updateSagaCards();
+    await resolveAllSagas(() => { if (view === 'sagas' && !arg) updateSagaCards(); });
+  })();
+}
+function sagaCard(s) {
+  const l = sagaList(s, 'crono', L.series[s.id] !== false), w = l.filter(isW).length;
+  const pending = l.some(x => !x.n);
+  return `<a class="saga" data-saga="${s.id}" href="#saga-${s.id}" style="--c1:${s.c1};--c2:${s.c2};--img:${heroBg(s)}"><h3>${esc(s.name)}</h3><div><small>${pending ? 'Calculando tu progreso…' : `${w} de ${l.length} vistas`}</small><div class="prog${pending ? ' busy' : ''}"><i style="width:${pending ? 0 : (l.length ? w / l.length * 100 : 0)}%"></i></div></div></a>`;
+}
+function updateSagaCards() {
+  if (view !== 'sagas' || arg) return;
+  for (const s of SAGAS) { const a = document.querySelector(`.saga[data-saga="${s.id}"]`); if (a) a.outerHTML = sagaCard(s); }
+}
+let resolvingAll = null;
+function resolveAllSagas(onEach) {
+  if (!resolvingAll) resolvingAll = (async () => { for (const s of SAGAS) { await resolveSaga(s); onEach && onEach(s); } })().finally(() => { resolvingAll = null; });
+  else if (onEach) resolvingAll.then(() => onEach());
+  return resolvingAll;
 }
 async function renderSaga(s) {
   const mode = L.order[s.id] || 'crono', ws = L.series[s.id] !== false, hasTv = s.items.some(i => i[0] === 't');
@@ -671,7 +698,7 @@ async function renderRecs() {
     }));
     let byGenre = [];
     if (G.length) { try { byGenre = (await api('discover/movie', { with_genres: G.join('|'), sort_by: 'popularity.desc', 'vote_count.gte': 200 })).results.map(r => norm(r, 'movie')).filter(n => !D.watched[kOf(n)]); } catch (e) {} }
-    for (const s of SAGAS) if (s.items.some(it => { const n = L.cache[ckey(it)]; return n && D.watched[n.type + ':' + n.id]; })) await resolveSaga(s);
+    await resolveAllSagas();
     const next = [];
     for (const s of SAGAS) { const l = sagaList(s, L.order[s.id] || 'crono', L.series[s.id] !== false); if (!l.some(isW)) continue; const x = l.find(x => x.n && !isW(x)); if (x) next.push({ s, n: x.n }); }
     recsCache = { recs, actors, next, byGenre };

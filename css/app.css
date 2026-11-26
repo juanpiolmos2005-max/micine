@@ -417,3 +417,5 @@ label.chk.big span{color:var(--mute)}label.chk.big b{color:var(--ink)}
   .ropts .seg button{white-space:normal;line-height:1.2;padding:8px 6px;font-size:14px}
   .stabs a{padding:8px 10px}
 }
+.prog.busy{background:linear-gradient(90deg,#fff3 0%,#fff8 50%,#fff3 100%);background-size:200% 100%;animation:shimmer 1.2s linear infinite}
+@keyframes shimmer{from{background-position:100% 0}to{background-position:-100% 0}}
