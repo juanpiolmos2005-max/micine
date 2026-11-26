@@ -357,9 +357,9 @@ async function renderExplore() {
   <h2 class="sec">${p ? `Hola, ${esc(pName(p))}` : 'Explorar'}</h2>
   ${searchTabs('explorar')}
   <form class="tools" id="sform" role="search"><div class="search">${icon(SEARCH, 20)}<input id="q" type="search" enterkeyhint="search" placeholder="Buscar cualquier película o serie…" value="${esc(ex.q)}" aria-label="Buscar"></div>
-  <div class="seg" id="tseg"><button type="button" data-t="movie">Películas</button><button type="button" data-t="tv">Series</button></div>
-  <label class="chk"><input type="checkbox" id="hide"> Ocultar las que ya vi</label></form>
-  <div class="chips" id="modes"></div><div class="chips" id="gchips"></div><div id="exres" style="margin-top:14px"></div>`;
+  <div class="ctrlrow"><div class="seg" id="tseg"><button type="button" data-t="movie">Películas</button><button type="button" data-t="tv">Series</button></div>
+  <label class="chk"><input type="checkbox" id="hide"> Ocultar vistas</label></div></form>
+  <div class="chips chipsrow"><div class="chipset" id="modes"></div><span class="chipsep" aria-hidden="true"></span><div class="chipset" id="gchips"></div></div><div id="exres" style="margin-top:16px"></div>`;
   $('#sform').onsubmit = e => { e.preventDefault(); ex.q = $('#q').value.trim(); ex.genre = null; $('#q').blur(); fetchExplore(true); };
   $('#q').oninput = e => { if (!e.target.value && ex.q) { ex.q = ''; fetchExplore(true); } };
   $('#tseg').onclick = e => { const t = e.target.dataset.t; if (!t || t === ex.type) return; ex.type = t; ex.genre = null; renderChips(); fetchExplore(true); };
@@ -901,7 +901,7 @@ async function renderRoulette() {
   <div class="roulette"><div class="ropts box">
    <div class="field"><span>¿Qué?</span><div class="seg" id="r-type"><button data-v="movie" aria-pressed="${ru.type === 'movie'}">Película</button><button data-v="tv" aria-pressed="${ru.type === 'tv'}">Serie</button></div></div>
    <div class="field" ${ru.type === 'tv' ? 'hidden' : ''}><span>¿Cuánto tiempo tienen?</span><div class="seg" id="r-time"><button data-v="105" aria-pressed="${ru.time === '105'}">Hasta 1 h 45</button><button data-v="135" aria-pressed="${ru.time === '135'}">Hasta 2 h 15</button><button data-v="any" aria-pressed="${ru.time === 'any'}">Sin apuro</button></div></div>
-   <div class="field"><span>¿De dónde?</span><div class="seg" id="r-src"><button data-v="surprise" aria-pressed="${ru.src === 'surprise'}">Sorprendeme</button><button data-v="list" aria-pressed="${ru.src === 'list'}">De ${c ? 'nuestra' : 'mi'} lista “quiero ver”</button></div></div>
+   <div class="field"><span>¿De dónde?</span><div class="seg" id="r-src"><button data-v="surprise" aria-pressed="${ru.src === 'surprise'}">Sorprendeme</button><button data-v="list" aria-pressed="${ru.src === 'list'}">${c ? 'Nuestra' : 'Mi'} lista</button></div></div>
    ${pv.length && ru.src === 'surprise' ? `<div class="field"><span>Plataformas que tienen</span><div class="provpick" id="r-prov">${pv.map(p => `<button data-v="${p.id}" aria-pressed="${ru.provs.includes(p.id)}" title="${esc(p.name)}"><img src="${img(p.logo, 'w92')}" alt="${esc(p.name)}"></button>`).join('')}</div><small>Si no elegís ninguna, busca en todas.</small></div>` : ''}
    <button class="btn spinbtn" id="spin">${icon(DICE, 22)}Girar la ruleta</button></div>
    <div class="rstage" id="rstage">${ru.result ? resultCard(ru.result) : `<div class="rslot idle">${icon(DICE, 64)}<p>Tocá “Girar la ruleta”</p></div>`}</div></div>`;
@@ -952,6 +952,7 @@ async function spin(c) {
   ru.result = pick; ru.spinning = false;
   if (view !== 'ruleta') return;
   st.innerHTML = resultCard(pick); btn.disabled = false;
+  if (innerWidth < 760) st.scrollIntoView({ behavior: 'smooth', block: 'start' });
   $('#again').onclick = () => spin(c);
 }
 
@@ -1215,8 +1216,8 @@ async function openDetail(k, silent) {
   const castBtn = c => `<button data-person="${c.id}" data-close><div class="face">${c.profile_path ? `<img loading="lazy" src="${img(c.profile_path, 'w185')}" alt="">` : esc(c.name.slice(0, 1))}</div><b>${esc(c.name)}</b>${c.character ? `<small>${esc(c.character)}</small>` : ''}${D.follows[c.id] ? '<small class="why">Lo seguís</small>' : ''}</button>`;
   sh.innerHTML = `<button class="close" data-close aria-label="Cerrar">✕</button>
   <div class="hero" style="background-image:url('${img(d.backdrop_path, 'w1280')}')"></div>
-  <div class="dbody"><div><div class="poster" style="cursor:default">${n.poster ? `<img src="${img(n.poster, 'w500')}" alt="">` : `<span>${esc(n.title)}</span>`}</div></div>
-  <div><h2>${esc(d.title || d.name)}</h2>
+  <div class="dbody"><div class="dposter"><div class="poster" style="cursor:default">${n.poster ? `<img src="${img(n.poster, 'w500')}" alt="">` : `<span>${esc(n.title)}</span>`}</div></div>
+  <div class="dinfo"><h2>${esc(d.title || d.name)}</h2>
    ${(d.original_title || d.original_name) !== (d.title || d.name) ? `<div class="muted">${esc(d.original_title || d.original_name)}</div>` : ''}
    <div class="facts">${[n.year, n.type === 'tv' ? 'Serie' : 'Película', dur, (d.genres || []).map(g => g.name).join(', '), d.vote_average ? `★ ${d.vote_average.toFixed(1)} en TMDB` : ''].filter(Boolean).map(esc).join(' · ')}</div>
    <div class="acts"><button class="btn${w ? ' on' : ''}" data-tick="${k}">${icon(t.mark, 20)}${w ? 'Ya la vi' : 'Marcar como vista'}</button>
