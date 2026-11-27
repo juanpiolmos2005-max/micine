@@ -419,3 +419,47 @@ label.chk.big span{color:var(--mute)}label.chk.big b{color:var(--ink)}
 }
 .prog.busy{background:linear-gradient(90deg,#fff3 0%,#fff8 50%,#fff3 100%);background-size:200% 100%;animation:shimmer 1.2s linear infinite}
 @keyframes shimmer{from{background-position:100% 0}to{background-position:-100% 0}}
+
+/* ===== Trivia ===== */
+.quizhead{display:flex;gap:16px;align-items:center;margin:4px 0 16px}
+.qbig{display:grid;place-items:center;width:78px;height:78px;flex:none;border-radius:22px;background:var(--acc);color:var(--on);box-shadow:0 10px 30px color-mix(in srgb,var(--acc) 40%,transparent)}
+.best{color:var(--acc2);font-weight:700;margin:4px 0 0}
+.quizsetup{max-width:620px}
+.quizsetup .field{margin:0 0 16px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.quiz,.turn,.quizend{max-width:720px;margin:0 auto}
+.qtop{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.qtag{background:var(--acc);color:var(--on);font-weight:800;font-size:12px;border-radius:6px;padding:3px 8px}
+.qscore{margin-left:auto;font-weight:800;color:var(--acc2)}
+.qtime{height:8px;border-radius:6px;background:var(--panel);overflow:hidden;margin-bottom:14px}
+.qtime i{display:block;height:100%;background:var(--acc);transition:width .1s linear}
+.qscene{aspect-ratio:16/9;border-radius:16px;background:var(--panel) center/cover;margin-bottom:14px;box-shadow:0 10px 30px #0005}
+.qbody{display:flex;gap:16px;align-items:flex-start;margin-bottom:16px}
+.qpost{width:92px;border-radius:10px;flex:none;box-shadow:0 6px 18px #0004}
+.qface{width:84px;height:84px;border-radius:50%;object-fit:cover;flex:none}
+.qq{font-size:clamp(22px,4.6vw,30px);line-height:1.15}
+.quiz blockquote{margin:12px 0 0;padding:12px 14px;border-left:4px solid var(--acc);background:var(--panel);border-radius:0 12px 12px 0;font-size:15px;line-height:1.5}
+.qopts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:560px){.qopts{grid-template-columns:1fr}}
+.qopts button{min-height:58px;border-radius:14px;border:2px solid var(--line);background:var(--panel);font-weight:700;font-size:16px;padding:10px 14px;text-align:left;transition:transform .1s,border-color .15s}
+.qopts button:not(:disabled):hover{border-color:var(--acc)}
+.qopts button:not(:disabled):active{transform:scale(.98)}
+.qopts button.right{border-color:#2fbf71;background:color-mix(in srgb,#2fbf71 22%,var(--panel))}
+.qopts button.wrong{border-color:#e5484d;background:color-mix(in srgb,#e5484d 22%,var(--panel))}
+.qopts button.dim{opacity:.45}
+.qres{margin:14px 0 4px;padding:12px 14px;border-radius:14px;background:var(--panel);border:1px solid var(--line)}
+.qres.ok b{color:#2fbf71}.qres.ko b{color:#e5484d}
+.turn,.quizend{text-align:center;padding-top:6vh}
+.turn h2,.quizend h2{font-size:clamp(34px,8vw,52px)}
+.quizend .qbig{margin:0 auto 14px}
+.quizend .big{font-size:20px;font-weight:700;margin:4px 0}
+.scoreline{display:flex;justify-content:center;gap:18px;margin:16px 0 22px;font-size:18px}
+.podium{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}
+.podium div{background:var(--panel);border:2px solid var(--line);border-radius:18px;padding:16px}
+.podium div.won{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 35%,transparent)}
+.podium b{display:block;font-family:var(--fh);font-size:44px;line-height:1;color:var(--acc)}
+.podium span{display:block;font-weight:700;margin-top:6px}.podium small{color:var(--mute)}
+.misses{display:grid;gap:8px}
+.miss{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.miss b{display:block}.miss span{color:var(--mute);font-size:14px}
+@media(max-width:760px){.quizhead{align-items:flex-start}.qbig{width:60px;height:60px;border-radius:18px}.qbig .ico{width:34px;height:34px}.quizend .qbig .ico{width:40px;height:40px}.headrow .acts{display:grid;grid-template-columns:1fr 1fr}.headrow .acts .btn{width:100%}}

@@ -59,6 +59,7 @@ const dayOf = w => w.watched_on === null ? null : (w.watched_on || (w.at ? new D
 const fold = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const STAR = { d: 'M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z', fill: 1 };
 const SEARCH = { d: 'M10.5 4a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13zM15.5 15.5 21 21' };
+const QUIZ = { d: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM9.2 9.3a2.9 2.9 0 1 1 3.9 2.7c-.7.3-1.1.9-1.1 1.6v.6M12 17h.01' };
 const DICE = { d: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM8 7h.01M16 7h.01M12 12h.01M8 17h.01M16 17h.01' };
 const stars = (r, size = 13) => r ? `<span class="stars-s" aria-label="${r} de 5">${[1, 2, 3, 4, 5].map(i => `<span class="${i <= r ? 'on' : ''}">${icon(STAR, size)}</span>`).join('')}</span>` : '';
 let toastT;
@@ -289,7 +290,7 @@ function renderBadge() {
   document.querySelectorAll('.badge').forEach(b => { b.hidden = !n; b.textContent = n; });
 }
 function markNav() {
-  const v = { actor: 'explorar', actores: 'explorar', personajes: 'explorar', editar: 'yo', resumen: 'yo', ruleta: arg ? 'juntos' : 'parati', perfil: 'juntos' }[view] || view;
+  const v = { actor: 'explorar', actores: 'explorar', personajes: 'explorar', editar: 'yo', resumen: 'yo', ruleta: arg ? 'juntos' : 'parati', trivia: arg ? 'juntos' : 'parati', perfil: 'juntos' }[view] || view;
   document.querySelectorAll('[data-nav]').forEach(a => a.dataset.nav === v ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
 }
 let view = 'explorar', arg = null;
@@ -297,9 +298,9 @@ const go = h => { if (location.hash.slice(1) === h) route(); else location.hash 
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   arg = null;
-  const pre = [['saga-', 'sagas'], ['actor-', 'actor'], ['juntos-', 'juntos'], ['u-', 'perfil'], ['ruleta-', 'ruleta']].find(([p]) => h.startsWith(p));
+  const pre = [['saga-', 'sagas'], ['actor-', 'actor'], ['juntos-', 'juntos'], ['u-', 'perfil'], ['ruleta-', 'ruleta'], ['trivia-', 'trivia']].find(([p]) => h.startsWith(p));
   if (pre) { view = pre[1]; arg = h.slice(pre[0].length); if (view === 'actor') arg = +arg; }
-  else view = ['explorar', 'sagas', 'parati', 'actores', 'personajes', 'juntos', 'ruleta', 'resumen', 'yo', 'editar', 'nueva-clave'].includes(h) ? h : 'explorar';
+  else view = ['explorar', 'sagas', 'parati', 'actores', 'personajes', 'juntos', 'ruleta', 'trivia', 'resumen', 'yo', 'editar', 'nueva-clave'].includes(h) ? h : 'explorar';
   if (view !== 'editar') applyTheme(curTheme());
   markNav();
   render();
@@ -307,7 +308,7 @@ function route() {
 function render() {
   if (!CLOUD && !L.key && view !== 'editar') return renderHello();
   if (CLOUD && user && !D.profile && view !== 'editar' && view !== 'nueva-clave') { location.replace('#editar'); return; }
-  ({ explorar: renderExplore, sagas: renderSagas, parati: renderRecs, actores: renderPeople, personajes: renderCharacters, actor: renderActor, juntos: renderJuntos, perfil: renderUser, ruleta: renderRoulette, resumen: renderSummary, yo: renderMe, editar: renderEditor, 'nueva-clave': renderNewPass })[view]();
+  ({ explorar: renderExplore, sagas: renderSagas, parati: renderRecs, actores: renderPeople, personajes: renderCharacters, actor: renderActor, juntos: renderJuntos, perfil: renderUser, ruleta: renderRoulette, trivia: renderTrivia, resumen: renderSummary, yo: renderMe, editar: renderEditor, 'nueva-clave': renderNewPass })[view]();
 }
 function refresh() {
   if (['explorar', 'parati', 'actor', 'personajes', 'perfil', 'ruleta'].includes(view)) {
@@ -680,7 +681,7 @@ let recsCache = null;
 async function renderRecs() {
   const W = Object.values(D.watched), F = Object.values(D.follows), G = (D.profile && D.profile.fav_genres) || [];
   app.innerHTML = `<div class="headrow"><div><h2 class="sec">Para vos</h2><p class="muted">Según lo que viste, cómo lo puntuaste, los actores que seguís y tus géneros favoritos.</p></div>
-  <a class="btn" href="#ruleta">${icon(DICE, 20)}¿Qué vemos hoy?</a></div><div id="recbody">${spinner()}</div>`;
+  <div class="acts"><a class="btn" href="#ruleta">${icon(DICE, 20)}¿Qué vemos hoy?</a><a class="btn ghost" href="#trivia">${icon(QUIZ, 20)}Trivia</a></div></div><div id="recbody">${spinner()}</div>`;
   if (needsAccount() || (!W.length && !F.length && !G.length)) {
     $('#recbody').innerHTML = emptyBox('Marcá lo que ya viste (y puntualo), seguí a algún actor o elegí tus géneros favoritos y acá te armo recomendaciones a tu medida.',
       `<p><a class="btn" href="#explorar">Explorar</a> <a class="btn ghost" href="#actores">Buscar actores</a></p>`);
@@ -775,7 +776,7 @@ async function renderCouple(cid) {
   const vimos = list.filter(([, v]) => v.status === 'watched').sort((a, b) => b[1].at - a[1].at), queremos = list.filter(([, v]) => v.status === 'want').sort((a, b) => b[1].at - a[1].at);
   app.innerHTML = `<a class="back" href="#juntos">← Juntos</a>
   <section class="couple"><span class="pair big">${myAvatar(96)}${pAvatar(c.other, 96)}</span><div><h2 class="sec">Vos y ${esc(pName(c.other))}</h2>
-   <div class="acts"><a class="btn" href="#ruleta-${cid}">${icon(DICE, 20)}¿Qué vemos hoy?</a><button class="btn ghost" id="goadd">+ Agregar las que ya vimos</button><a class="btn ghost" href="#u-${esc(c.other.username)}">Ver perfil de ${esc(pName(c.other))}</a></div></div></section>
+   <div class="acts"><a class="btn" href="#ruleta-${cid}">${icon(DICE, 20)}¿Qué vemos hoy?</a><a class="btn ghost" href="#trivia-${cid}">${icon(QUIZ, 20)}Duelo de preguntas</a><button class="btn ghost" id="goadd">+ Agregar las que ya vimos</button><a class="btn ghost" href="#u-${esc(c.other.username)}">Ver perfil de ${esc(pName(c.other))}</a></div></div></section>
   <div class="tools"><div class="seg" id="jt"><button data-v="vimos" aria-pressed="${jtab.tab === 'vimos'}">Vimos juntos (${vimos.length})</button><button data-v="queremos" aria-pressed="${jtab.tab === 'queremos'}">Queremos ver (${queremos.length})</button><button data-v="recs" aria-pressed="${jtab.tab === 'recs'}">Para ver juntos</button><button data-v="agregar" aria-pressed="${jtab.tab === 'agregar'}">+ Agregar vistas antes</button></div></div>
   <div id="jbody"></div>
   <p class="muted" style="margin-top:34px;font-size:14px">Para sumar títulos a esta lista, abrí cualquier peli o serie y tocá “La vimos juntos” o “Queremos verla”. <button class="linkbtn" data-remove="${cid}">Desconectarse</button></p>`;
@@ -983,6 +984,199 @@ async function spin(c) {
   $('#again').onclick = () => spin(c);
 }
 
+/* ===================== Trivia ===================== */
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const BADCHAR = /\b(himself|herself|themselves|self|uncredited|voice|narrator|narrador|s[ií] mismo|s[ií] misma|\(voz\)|additional)\b/i;
+const tq = { mode: 'solo', n: 10, timer: true, game: null };
+const triviaDetail = {};
+async function triviaInfo(n) {
+  const k = kOf(n); if (triviaDetail[k]) return triviaDetail[k];
+  try {
+    const d = await api(`${n.type}/${n.id}`, { append_to_response: n.type === 'movie' ? 'credits' : 'aggregate_credits' });
+    const raw = n.type === 'movie' ? (d.credits?.cast || []) : (d.aggregate_credits?.cast || []).map(c => ({ ...c, character: (c.roles || [])[0]?.character || '' }));
+    const cast = raw.slice(0, 10).map(c => ({ id: c.id, name: c.name, character: (c.character || '').split('/')[0].trim(), photo: c.profile_path })).filter(c => c.name);
+    const directors = n.type === 'movie' ? (d.credits?.crew || []).filter(c => c.job === 'Director').map(c => c.name) : (d.created_by || []).map(c => c.name);
+    return (triviaDetail[k] = { k, n, type: n.type, title: d.title || d.name || n.title, year: (d.release_date || d.first_air_date || '').slice(0, 4), poster: d.poster_path || n.poster, bd: d.backdrop_path, overview: d.overview || '', tagline: d.tagline || '', seasons: d.number_of_seasons || 0, cast, directors });
+  } catch (e) { return null; }
+}
+const maskTitle = (txt, title) => { let o = txt; for (const w of title.split(/[\s:,.\-–]+/).filter(w => w.length > 3)) o = o.replace(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '▇▇▇'); return o; };
+const short = (t, n = 230) => t.length > n ? t.slice(0, n).replace(/\s+\S*$/, '') + '…' : t;
+function makeQuestion(t, all, kind) {
+  const others = all.filter(o => o.k !== t.k);
+  const titleOpts = () => { const d = shuffle(others).slice(0, 3); return d.length < 3 ? null : shuffle([{ label: t.title, ok: true }, ...d.map(o => ({ label: o.title }))]); };
+  const goodCast = t.cast.slice(0, 6).filter(c => c.character && !BADCHAR.test(c.character) && c.character.length > 1);
+  const L2 = t.type === 'tv' ? 'la serie' : 'la película';
+  switch (kind) {
+    case 'year': {
+      const y = +t.year; if (!y) return null;
+      const set = new Set([y]); while (set.size < 4) { const d = y + (Math.floor(Math.random() * 13) - 6); if (d !== y && d <= new Date().getFullYear() + 1 && d > 1900) set.add(d); }
+      return { kind, label: 'Año', q: t.type === 'tv' ? `¿En qué año empezó la serie ${t.title}?` : `¿En qué año se estrenó ${t.title}?`, img: t.poster && img(t.poster, 'w342'), opts: shuffle([...set].map(v => ({ label: String(v), ok: v === y }))), why: `${t.title} es de ${y}.` };
+    }
+    case 'who': {
+      if (!goodCast.length) return null; const c = pick(goodCast);
+      const pool = shuffle([...new Set(others.flatMap(o => o.cast.slice(0, 6).map(x => x.name)).filter(nm => !t.cast.some(x => x.name === nm)))]).slice(0, 3);
+      if (pool.length < 3) return null;
+      return { kind, label: 'Reparto', q: `¿Quién interpretó a ${c.character} en ${t.title}?`, img: t.poster && img(t.poster, 'w342'), opts: shuffle([{ label: c.name, ok: true }, ...pool.map(x => ({ label: x }))]), why: `${c.name} fue ${c.character}.`, person: c };
+    }
+    case 'where': {
+      if (!goodCast.length) return null; const c = pick(goodCast);
+      const d = shuffle(others.filter(o => !o.cast.some(x => x.id === c.id))).slice(0, 3); if (d.length < 3) return null;
+      return { kind, label: 'Reparto', q: `¿En cuál de estos títulos ${c.name} interpretó a ${c.character}?`, face: c.photo && img(c.photo, 'w185'), opts: shuffle([{ label: t.title, ok: true }, ...d.map(o => ({ label: o.title }))]), why: `${c.name} fue ${c.character} en ${t.title}.` };
+    }
+    case 'scene': {
+      if (!t.bd) return null; const o = titleOpts(); if (!o) return null;
+      return { kind, label: 'Escena', q: '¿De qué película o serie es esta imagen?', scene: img(t.bd, 'w780'), opts: o, why: `Es de ${t.title}.` };
+    }
+    case 'director': {
+      if (!t.directors.length) return null;
+      const pool = shuffle([...new Set(others.flatMap(o => o.directors).filter(nm => !t.directors.includes(nm)))]).slice(0, 3); if (pool.length < 3) return null;
+      const right = t.directors[0];
+      return { kind, label: t.type === 'tv' ? 'Creadores' : 'Dirección', q: t.type === 'tv' ? `¿Quién creó la serie ${t.title}?` : `¿Quién dirigió ${t.title}?`, img: t.poster && img(t.poster, 'w342'), opts: shuffle([{ label: right, ok: true }, ...pool.map(x => ({ label: x }))]), why: `${t.type === 'tv' ? 'La creó' : 'La dirigió'} ${t.directors.join(' y ')}.` };
+    }
+    case 'plot': {
+      if (t.overview.length < 60) return null; const o = titleOpts(); if (!o) return null;
+      return { kind, label: 'Sinopsis', q: '¿De qué título es esta sinopsis?', quote: short(maskTitle(t.overview, t.title)), opts: o, why: `Es ${L2} ${t.title}.` };
+    }
+    case 'tagline': {
+      if (t.tagline.length < 8) return null; const o = titleOpts(); if (!o) return null;
+      return { kind, label: 'Frase', q: '¿De qué título es esta frase promocional?', quote: `“${maskTitle(t.tagline, t.title)}”`, opts: o, why: `Era la frase de ${t.title}.` };
+    }
+    case 'seasons': {
+      if (t.type !== 'tv' || !t.seasons) return null; const s0 = t.seasons;
+      const set = new Set([s0]); while (set.size < 4) { const d = Math.max(1, s0 + Math.floor(Math.random() * 7) - 3); set.add(d); if (set.size < 4 && s0 <= 2) set.add(set.size + 3); }
+      return { kind, label: 'Temporadas', q: `¿Cuántas temporadas tiene ${t.title}?`, img: t.poster && img(t.poster, 'w342'), opts: shuffle([...set].slice(0, 4).map(v => ({ label: String(v), ok: v === s0 }))), why: `${t.title} tiene ${s0} temporada${s0 === 1 ? '' : 's'}.` };
+    }
+  }
+  return null;
+}
+async function buildQuiz(source, total, onProgress) {
+  const picked = shuffle(source).slice(0, Math.min(source.length, Math.max(12, total + 4)));
+  const infos = [];
+  for (let i = 0; i < picked.length; i += 6) { infos.push(...(await Promise.all(picked.slice(i, i + 6).map(triviaInfo)))); onProgress && onProgress(Math.min(i + 6, picked.length), picked.length); }
+  let all = infos.filter(Boolean);
+  if (all.length < 4) return [];
+  if (all.length < 8) { // relleno para tener opciones incorrectas creíbles
+    try { const d = await api('trending/all/week'); const extra = (await Promise.all(d.results.filter(r => r.media_type !== 'person').slice(0, 8).map(r => triviaInfo(norm(r, r.media_type))))).filter(Boolean); all = [...all, ...extra.map(e => ({ ...e, filler: true }))]; } catch (e) {}
+  }
+  const mine = shuffle(all.filter(t => !t.filler));
+  const kinds = ['who', 'scene', 'year', 'where', 'director', 'plot', 'tagline', 'seasons'];
+  const qs = []; let last = '';
+  for (let i = 0, tries = 0; qs.length < total && tries < total * 8; i++, tries++) {
+    const t = mine[i % mine.length];
+    for (const kind of shuffle(kinds)) {
+      if (kind === last && Math.random() < .8) continue;
+      const q = makeQuestion(t, all, kind);
+      if (q && !qs.some(x => x.q === q.q)) { qs.push({ ...q, k: t.k }); last = kind; break; }
+    }
+  }
+  return qs;
+}
+async function renderTrivia() {
+  const cid = arg; let c = null;
+  if (cid) { if (!D.conns.length) await loadConns(); c = D.conns.find(x => x.id === cid && x.status === 'accepted'); if (!c) return go('juntos'); tq.mode = 'duelo'; }
+  if (tq.game && tq.game.cid === (cid || null) && !tq.game.done) return drawGame();
+  const W = Object.values(D.watched);
+  const best = (L.trivia || {}).best || 0;
+  app.innerHTML = `<a class="back" href="${cid ? '#juntos-' + cid : '#parati'}">← ${cid ? 'Juntos' : 'Para vos'}</a>
+  <section class="quizhead"><span class="qbig">${icon(QUIZ, 46)}</span><div><h2 class="sec">${c ? `Duelo: vos vs ${esc(pName(c.other))}` : 'Trivia de lo que viste'}</h2>
+  <p class="muted">${c ? 'Se pasan el celu por turnos. Las preguntas salen de lo que vieron juntos y de lo que vieron los dos.' : 'Preguntas sobre las pelis y series que marcaste como vistas: reparto, escenas, años, directores y más.'}</p>
+  ${best ? `<p class="best">Tu récord: <b>${best}</b> puntos</p>` : ''}</div></section>
+  ${!c && W.length < 4 ? emptyBox('Necesitás al menos 4 títulos marcados como vistos para jugar. ¡Andá a Explorar y tildá lo que ya viste!', '<a class="btn" href="#explorar">Explorar</a>') : `
+  <form class="box quizsetup" id="tqf">
+   ${c ? '' : `<div class="field"><span>Modo</span><div class="seg" id="tqm"><button type="button" data-v="solo" aria-pressed="${tq.mode === 'solo'}">Solo</button><button type="button" data-v="duelo" aria-pressed="${tq.mode === 'duelo'}">Duelo en el mismo celu</button></div></div>`}
+   <div class="field" id="tqnames" ${tq.mode === 'duelo' ? '' : 'hidden'}><span>Jugadores</span><div class="two"><input id="p1" value="${esc(pName(D.profile) === 'Alguien' ? 'Jugador 1' : pName(D.profile))}" maxlength="20" aria-label="Jugador 1"><input id="p2" value="${esc(c ? pName(c.other) : 'Jugador 2')}" maxlength="20" aria-label="Jugador 2"></div></div>
+   <div class="field"><span>Preguntas${tq.mode === 'duelo' ? ' por jugador' : ''}</span><div class="seg" id="tqn">${[5, 10, 15].map(v => `<button type="button" data-v="${v}" aria-pressed="${tq.n === v}">${v}</button>`).join('')}</div></div>
+   <label class="chk"><input type="checkbox" id="tqt" ${tq.timer ? 'checked' : ''}> Con reloj (20 segundos por pregunta, más rápido = más puntos)</label>
+   <button class="btn spinbtn" id="tqgo">${icon(QUIZ, 22)}Empezar</button><p class="err" id="tqerr"></p></form>`}`;
+  if (!$('#tqf')) return;
+  const segs = (id, fn) => { const el = $(id); if (el) el.onclick = e => { const b = e.target.closest('button'); if (!b) return; fn(b.dataset.v); el.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); }; };
+  segs('#tqm', v => { tq.mode = v; renderTrivia(); });
+  segs('#tqn', v => { tq.n = +v; });
+  $('#tqt').onchange = e => { tq.timer = e.target.checked; };
+  $('#tqf').onsubmit = async e => {
+    e.preventDefault(); $('#tqgo').disabled = true;
+    const duel = tq.mode === 'duelo';
+    let source = W;
+    if (c) {
+      const pl = await partnerLib(c.otherId);
+      const together = Object.values(D.cpl[c.id] || {}).filter(v => v.status === 'watched');
+      const both = Object.entries(D.watched).filter(([k]) => pl.watched[k]).map(([, v]) => v);
+      const seen = new Set(); source = [...together, ...both, ...W, ...Object.values(pl.watched)].filter(v => { const k = kOf(v); if (seen.has(k)) return false; seen.add(k); return true; });
+    }
+    const total = tq.n * (duel ? 2 : 1);
+    const box = $('#tqerr'); box.className = 'muted'; box.textContent = 'Armando las preguntas…';
+    const qs = await buildQuiz(source, total, (a, b) => { box.textContent = `Armando las preguntas… (${a} de ${b} títulos)`; });
+    if (qs.length < Math.min(total, 4)) { box.className = 'err'; box.textContent = 'No pude armar suficientes preguntas. Marcá algunas pelis o series más como vistas.'; $('#tqgo').disabled = false; return; }
+    const names = duel ? [$('#p1').value.trim() || 'Jugador 1', $('#p2').value.trim() || 'Jugador 2'] : [pName(D.profile)];
+    tq.game = { cid: cid || null, qs, i: 0, players: names.map(n => ({ name: n, score: 0, ok: 0, streak: 0 })), answered: null, timer: tq.timer, waiting: duel, misses: [] };
+    drawGame();
+  };
+}
+let tqTick = null;
+function drawGame() {
+  const g = tq.game; clearInterval(tqTick);
+  if (g.i >= g.qs.length) return endGame();
+  const q = g.qs[g.i], duel = g.players.length > 1, P = g.players[duel ? g.i % 2 : 0];
+  const per = duel ? Math.ceil(g.qs.length / 2) : g.qs.length, num = duel ? Math.floor(g.i / 2) + 1 : g.i + 1;
+  if (g.waiting) {
+    app.innerHTML = `<section class="turn"><p class="muted">Pregunta ${num} de ${per}</p><h2 class="sec">Turno de ${esc(P.name)}</h2><p>Pasale el celu 📱</p>
+    <div class="scoreline">${g.players.map(p => `<span><b>${esc(p.name)}</b> ${p.score}</span>`).join('')}</div>
+    <button class="btn spinbtn" id="ready">Estoy listo</button></section>`;
+    $('#ready').onclick = () => { g.waiting = false; drawGame(); };
+    return;
+  }
+  const a = g.answered;
+  app.innerHTML = `<section class="quiz">
+   <div class="qtop"><span class="qtag">${esc(q.label)}</span><span class="muted">${duel ? esc(P.name) + ' · ' : ''}${num} / ${per}</span><span class="qscore">${P.score} pts${P.streak > 1 ? ` · 🔥${P.streak}` : ''}</span></div>
+   ${g.timer ? `<div class="qtime"><i id="qbar" style="width:${a ? (g.left / 20 * 100) : 100}%"></i></div>` : ''}
+   ${q.scene ? `<div class="qscene" style="background-image:url('${q.scene}')"></div>` : ''}
+   <div class="qbody">${q.img && !q.scene ? `<img class="qpost" src="${q.img}" alt="">` : ''}${q.face ? `<img class="qface" src="${q.face}" alt="">` : ''}
+    <div><h3 class="qq">${esc(q.q)}</h3>${q.quote ? `<blockquote>${esc(q.quote)}</blockquote>` : ''}</div></div>
+   <div class="qopts">${q.opts.map((o, i) => `<button data-qi="${i}" class="${a ? (o.ok ? 'right' : a.i === i ? 'wrong' : 'dim') : ''}" ${a ? 'disabled' : ''}>${esc(o.label)}</button>`).join('')}</div>
+   ${a ? `<div class="qres ${a.ok ? 'ok' : 'ko'}"><b>${a.ok ? `¡Bien! +${a.pts}` : a.timeout ? '¡Se acabó el tiempo!' : 'Casi…'}</b> ${esc(q.why)}</div>
+   <div class="acts"><button class="btn spinbtn" id="qnext">${g.i + 1 >= g.qs.length ? 'Ver resultado' : 'Siguiente'}</button><button class="btn ghost" data-open="${q.k}">Ver ficha</button></div>` : ''}
+  </section>`;
+  if (!a) {
+    app.querySelector('.qopts').onclick = e => { const b = e.target.closest('[data-qi]'); if (b) answer(+b.dataset.qi); };
+    if (g.timer) {
+      g.left = 20; const bar = $('#qbar');
+      tqTick = setInterval(() => { g.left -= .1; if (bar) bar.style.width = Math.max(0, g.left / 20 * 100) + '%'; if (g.left <= 0) { clearInterval(tqTick); answer(-1); } }, 100);
+    }
+  } else $('#qnext').onclick = () => { g.i++; g.answered = null; if (g.players.length > 1) g.waiting = true; drawGame(); };
+}
+function answer(i) {
+  const g = tq.game; if (!g || g.answered) return; clearInterval(tqTick);
+  const q = g.qs[g.i], P = g.players[g.players.length > 1 ? g.i % 2 : 0];
+  const ok = i >= 0 && q.opts[i].ok;
+  let pts = 0;
+  if (ok) { P.streak++; P.ok++; pts = 100 + (g.timer ? Math.round(Math.max(0, g.left) * 5) : 0) + (P.streak > 1 ? (P.streak - 1) * 20 : 0); P.score += pts; }
+  else { P.streak = 0; g.misses.push({ q, who: P.name }); }
+  g.answered = { i, ok, pts, timeout: i < 0 };
+  if (navigator.vibrate) try { navigator.vibrate(ok ? 30 : [60, 40, 60]); } catch (e) {}
+  drawGame();
+}
+function endGame() {
+  const g = tq.game; g.done = true; clearInterval(tqTick);
+  const duel = g.players.length > 1, per = duel ? Math.ceil(g.qs.length / 2) : g.qs.length;
+  L.trivia = L.trivia || { best: 0, played: 0 }; L.trivia.played++;
+  const me = g.players[0]; const record = !duel && me.score > (L.trivia.best || 0);
+  if (!duel && record) L.trivia.best = me.score; saveL();
+  const win = duel ? (g.players[0].score === g.players[1].score ? null : g.players[0].score > g.players[1].score ? g.players[0] : g.players[1]) : null;
+  const pct = Math.round(me.ok / per * 100);
+  const verdict = pct >= 90 ? '¡Sos una enciclopedia del cine!' : pct >= 70 ? '¡Muy bien! Se nota que prestás atención.' : pct >= 40 ? 'Nada mal. ¿Un maratón de repaso?' : 'Uy… ¿seguro que las viste? 😅';
+  const share = duel ? `Duelo de trivia en MiCine: ${g.players.map(p => `${p.name} ${p.score}`).join(' vs ')}. ${win ? `¡Ganó ${win.name}!` : '¡Empate!'} 🎬` : `Saqué ${me.score} puntos (${me.ok}/${per}) en la trivia de MiCine sobre las pelis y series que vi. ¿Me ganás? 🎬`;
+  app.innerHTML = `<section class="quizend">
+   <span class="qbig">${icon(duel ? QUIZ : T().mark, 52)}</span>
+   ${duel ? `<h2 class="sec">${win ? `¡Ganó ${esc(win.name)}!` : '¡Empate!'}</h2><div class="podium">${g.players.map(p => `<div class="${p === win ? 'won' : ''}"><b>${p.score}</b><span>${esc(p.name)}</span><small>${p.ok} de ${per} bien</small></div>`).join('')}</div>`
+      : `<h2 class="sec">${me.score} puntos</h2><p class="big">${me.ok} de ${per} correctas · ${pct}%</p><p>${verdict}</p>${record ? '<p class="best">🏆 ¡Nuevo récord!</p>' : `<p class="muted">Tu récord: ${L.trivia.best} puntos</p>`}`}
+   <div class="acts" style="justify-content:center"><button class="btn" id="again">Jugar de nuevo</button><button class="btn ghost" id="tshare">Compartir</button></div></section>
+   ${g.misses.length ? `<h3 class="row-t">Para repasar</h3><div class="misses">${g.misses.map(m => `<div class="miss"><b>${esc(m.q.q)}</b><span>${esc(m.q.why)}${duel ? ` <small class="muted">(${esc(m.who)})</small>` : ''}</span></div>`).join('')}</div>` : ''}`;
+  $('#again').onclick = () => { tq.game = null; renderTrivia(); };
+  $('#tshare').onclick = async () => { const data = { title: 'Trivia MiCine', text: share, url: location.origin + location.pathname }; if (navigator.share) { try { await navigator.share(data); return; } catch (e) { if (e.name === 'AbortError') return; } } copyText(share + ' ' + data.url, 'Resultado copiado'); };
+}
+addEventListener('hashchange', () => { if (view !== 'trivia') clearInterval(tqTick); });
+
 /* ===================== Resumen del mes / año ===================== */
 const sm = { period: 'month' };
 function periodRange(p) {
@@ -1083,7 +1277,7 @@ function renderMe() {
    <h2>${esc(pName(p))}</h2>${p.username ? `<div class="handle">@${esc(p.username)}${CLOUD ? ` · ${p.is_public ? 'Perfil público' : 'Perfil privado'}` : ''}</div>` : ''}
    ${p.bio ? `<p style="margin:8px 0 0">${esc(p.bio)}</p>` : ''}
    <div class="stats"><div class="stat"><b>${nm}</b><span>películas</span></div><div class="stat"><b>${W.length - nm}</b><span>series</span></div><div class="stat"><b>${A.length}</b><span>quiero ver</span></div><div class="stat"><b>${F.length}</b><span>actores</span></div></div>
-   <div class="acts"><a class="btn small" href="#resumen">Mi resumen</a><a class="btn ghost small" href="#editar">Editar personaje y estilo</a>${CLOUD ? `<button class="btn ghost small" id="cpl">Copiar link de mi perfil</button><button class="btn ghost small" id="logout">Cerrar sesión</button>` : ''}</div></div></section>
+   <div class="acts"><a class="btn small" href="#resumen">Mi resumen</a><a class="btn ghost small" href="#trivia">Trivia</a><a class="btn ghost small" href="#editar">Editar personaje y estilo</a>${CLOUD ? `<button class="btn ghost small" id="cpl">Copiar link de mi perfil</button><button class="btn ghost small" id="logout">Cerrar sesión</button>` : ''}</div></div></section>
   <div class="tools" style="margin-top:22px"><div class="seg" id="mtab"><button data-v="vistas" aria-pressed="${mine.tab === 'vistas'}">Vistas (${W.length})</button><button data-v="quiero" aria-pressed="${mine.tab === 'quiero'}">Quiero ver (${A.length})</button><button data-v="actores" aria-pressed="${mine.tab === 'actores'}">Actores (${F.length})</button></div></div>
   ${body}
   <details class="box" style="margin-top:40px"><summary><b>Ajustes y copia de seguridad</b></summary>
