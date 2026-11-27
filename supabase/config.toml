@@ -4,3 +4,6 @@ project_id = "micine"
 verify_jwt = false
 
 # Despliegue: 2026-11-24T20:30Z
+
+[functions.notify]
+verify_jwt = false

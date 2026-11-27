@@ -297,15 +297,19 @@ function markNav() {
 }
 let view = 'explorar', arg = null;
 const go = h => { if (location.hash.slice(1) === h) route(); else location.hash = h; };
+let pendingOpen = null;
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   arg = null;
+  const deep = h.match(/^t-(movie|tv)-(\d+)$/);
+  if (deep) { pendingOpen = deep[1] + ':' + deep[2]; history.replaceState(null, '', '#explorar'); return route(); }
   const pre = [['saga-', 'sagas'], ['actor-', 'actor'], ['juntos-', 'juntos'], ['u-', 'perfil'], ['ruleta-', 'ruleta'], ['trivia-', 'trivia'], ['test-', 'test']].find(([p]) => h.startsWith(p));
   if (pre) { view = pre[1]; arg = h.slice(pre[0].length); if (view === 'actor') arg = +arg; }
   else view = ['explorar', 'sagas', 'parati', 'actores', 'personajes', 'juntos', 'ruleta', 'trivia', 'tests', 'resumen', 'yo', 'editar', 'nueva-clave'].includes(h) ? h : 'explorar';
   if (view !== 'editar') applyTheme(curTheme());
   markNav();
   render();
+  if (pendingOpen) { const k = pendingOpen, [t, id] = k.split(':'); pendingOpen = null; REG[k] = REG[k] || { id: +id, type: t, title: '' }; setTimeout(() => openDetail(k), 50); }
 }
 function render() {
   if (!CLOUD && !L.key && view !== 'editar') return renderHello();
@@ -368,7 +372,9 @@ async function fetchExplore(reset) {
 async function renderExplore() {
   const p = D.profile;
   app.innerHTML = `${CLOUD && !user ? `<div class="banner"><span><b>Creá tu personaje</b> para guardar lo que viste, puntuar, seguir actores y armar listas en pareja.</span><a class="btn small" href="#yo">Crear cuenta</a></div>` : ''}
-  <h2 class="sec">${p ? `Hola, ${esc(pName(p))}` : 'Explorar'}</h2>
+  <section class="hero-car" id="hcar" aria-roledescription="carrusel" aria-label="Tendencias de la semana"><div class="hc-track" id="hctrack"><div class="hc-slide skel"></div></div><div class="hc-dots" id="hcdots"></div>
+   <button class="hc-nav prev" id="hcprev" aria-label="Anterior">‹</button><button class="hc-nav next" id="hcnext" aria-label="Siguiente">›</button></section>
+  <h2 class="sec hello-s">${p ? `Hola, ${esc(pName(p))}` : 'Explorar'}</h2>
   ${searchTabs('explorar')}
   <form class="tools" id="sform" role="search"><div class="search">${icon(SEARCH, 20)}<input id="q" type="search" enterkeyhint="search" placeholder="Buscar cualquier película o serie…" value="${esc(ex.q)}" aria-label="Buscar"></div>
   <div class="ctrlrow"><div class="seg" id="tseg"><button type="button" data-t="movie">Películas</button><button type="button" data-t="tv">Series</button></div>
@@ -383,6 +389,27 @@ async function renderExplore() {
   $('#hide').checked = ex.hide;
   renderChips();
   if (!ex.items.length && !ex.loading) fetchExplore(true); else renderExploreList();
+  heroCarousel();
+}
+let heroItems = null, heroTimer = null;
+async function heroCarousel() {
+  if (!heroItems) { try { heroItems = (await api('trending/all/week')).results.filter(r => r.backdrop_path && (r.media_type === 'movie' || r.media_type === 'tv')).slice(0, 8).map(r => norm(r, r.media_type)); } catch (e) { heroItems = []; } }
+  const tr = $('#hctrack'); if (!tr) return;
+  if (!heroItems.length) { $('#hcar').remove(); return; }
+  tr.innerHTML = heroItems.map((n, i) => { const k = kOf(n); return `<article class="hc-slide" style="background-image:url('${img(n.bd, 'w1280')}')" aria-label="${i + 1} de ${heroItems.length}">
+    <div class="hc-info"><span class="hc-tag">#${i + 1} en tendencias</span><h3>${esc(n.title)}</h3><p>${n.year || ''} · ${n.type === 'tv' ? 'Serie' : 'Película'}${n.vote ? ` · ★ ${(+n.vote).toFixed(1)}` : ''}</p>${n.ov ? `<p class="hc-ov">${esc(n.ov)}</p>` : ''}
+    <div class="acts"><button class="btn" data-open="${k}">Ver ficha</button><button class="btn ghost" data-want="${k}">${icon(T().want, 18)}Quiero ver</button></div></div></article>`; }).join('');
+  $('#hcdots').innerHTML = heroItems.map((_, i) => `<button aria-label="Ir a ${i + 1}" data-hc="${i}"></button>`).join('');
+  let cur = 0;
+  const go2 = i => { cur = (i + heroItems.length) % heroItems.length; tr.scrollTo({ left: cur * tr.clientWidth, behavior: 'smooth' }); };
+  const mark = () => $('#hcdots')?.querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-current', i === cur));
+  tr.onscroll = () => { const i = Math.round(tr.scrollLeft / tr.clientWidth); if (i !== cur) { cur = i; mark(); } };
+  $('#hcdots').onclick = e => { const b = e.target.closest('[data-hc]'); if (b) { go2(+b.dataset.hc); restart(); } };
+  $('#hcprev').onclick = () => { go2(cur - 1); restart(); }; $('#hcnext').onclick = () => { go2(cur + 1); restart(); };
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const restart = () => { clearInterval(heroTimer); if (!reduce) heroTimer = setInterval(() => { if (!document.body.contains(tr)) return clearInterval(heroTimer); if (!document.hidden && !$('#hcar')?.matches(':hover')) go2(cur + 1); }, 5500); };
+  tr.addEventListener('touchstart', restart, { passive: true });
+  mark(); restart();
 }
 async function renderChips() {
   document.querySelectorAll('#tseg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === ex.type));
@@ -533,16 +560,15 @@ function renderSagas() {
   if (s) return renderSaga(s);
   const draw = () => {
     app.innerHTML = `<h2 class="sec">Sagas y universos</h2><p class="muted">Elegí una saga para verla en orden, tildar lo que ya viste y saber qué sigue.</p>
-    <div class="sagas" style="margin-top:16px">${SAGAS.map(sagaCard).join('')}</div>
-    <h3 class="row-t">Buscar otra saga</h3>
-    <p class="muted">TMDB agrupa miles de colecciones: Rocky, James Bond, Shrek, Volver al futuro, El Padrino…</p>
-    <form class="tools" id="colform"><div class="search"><input id="colq" enterkeyhint="search" placeholder="Ej: Rocky, Matrix, Shrek…" aria-label="Buscar saga"></div><button class="btn">Buscar</button></form><div id="colres"></div>`;
+    <form class="tools" id="colform" role="search"><div class="search">${icon(SEARCH, 20)}<input id="colq" type="search" enterkeyhint="search" placeholder="Buscar otra saga: Rocky, Matrix, Shrek, El Padrino…" aria-label="Buscar saga"></div><button class="btn">Buscar</button></form><div id="colres"></div>
+    <div class="sagas" style="margin-top:16px">${SAGAS.map(sagaCard).join('')}</div>`;
     $('#colform').onsubmit = async e => {
       e.preventDefault(); const q = $('#colq').value.trim(); if (!q) return; $('#colq').blur();
       $('#colres').innerHTML = spinner();
       try {
         const d = await api('search/collection', { query: q });
-        $('#colres').innerHTML = d.results.length ? `<div class="sagas">${d.results.slice(0, 18).map(c => `<a class="saga" href="#saga-col${c.id}" style="--c1:#333;--c2:#111;--img:${c.backdrop_path ? `url('${img(c.backdrop_path, 'w780')}')` : 'none'}"><h3>${esc(c.name)}</h3><div><small>Ver en orden</small></div></a>`).join('')}</div>` : emptyBox('No encontré colecciones con ese nombre.');
+        $('#colres').innerHTML = d.results.length ? `<h3 class="row-t" style="margin-top:6px">Resultados <button type="button" class="linkbtn" id="colclr">limpiar</button></h3><div class="sagas">${d.results.slice(0, 18).map(c => `<a class="saga" href="#saga-col${c.id}" style="--c1:#333;--c2:#111;--img:${c.backdrop_path ? `url('${img(c.backdrop_path, 'w780')}')` : 'none'}"><h3>${esc(c.name)}</h3><div><small>Ver en orden</small></div></a>`).join('')}</div>` : emptyBox('No encontré colecciones con ese nombre.');
+        const cl = $('#colclr'); if (cl) cl.onclick = () => { $('#colres').innerHTML = ''; $('#colq').value = ''; };
       } catch (er) { $('#colres').innerHTML = `<p class="err">${esc(er.message)}</p>`; }
     };
   };
@@ -708,6 +734,12 @@ async function renderRecs() {
   }
   if (view !== 'parati' || !$('#recbody')) return;
   const { recs, actors, next, byGenre } = recsCache;
+  if (CLOUD && user && pushSupported() && !L.pushAsked && Notification.permission === 'default') {
+    $('#recbody').insertAdjacentHTML('beforebegin', `<div class="banner" id="pushask"><span>🔔 <b>¿Te aviso de los estrenos?</b> Cuando salga algo de un actor que seguís o de una saga que viste.</span><span class="acts" style="margin:0"><button class="btn small" id="pa1">Activar</button><button class="btn ghost small" id="pa0">Ahora no</button></span></div>`);
+    const close = () => { L.pushAsked = 1; saveL(); $('#pushask')?.remove(); };
+    $('#pa0').onclick = close;
+    $('#pa1').onclick = async () => { try { await enablePush(); toast('¡Avisos activados!'); } catch (e) { toast(e.message); } close(); };
+  }
   const gnames = G.length ? (await genres('movie')).filter(g => G.includes(g.id)).map(g => g.name) : [];
   $('#recbody').innerHTML =
     (next.length ? `<h3 class="row-t">Seguí tus sagas</h3><div class="hrow">${next.map(x => card(x.n, `<small class="why">${esc(x.s.name)}</small>`)).join('')}</div>` : '') +
@@ -1235,18 +1267,19 @@ async function renderTests() {
   ${acc.length ? `<h3 class="row-t">En pareja</h3><div class="tgrid">${acc.map(c => `<a class="tcard" href="#test-duo-${c.id}"><span class="pair">${myAvatar(40)}${pAvatar(c.other, 40)}</span><div><b>¿Qué dupla son con ${esc(pName(c.other))}?</b><small>Responden los dos en el mismo celu y les digo a qué pareja del cine se parecen.</small></div></a>`).join('')}</div>` : ''}`;
 }
 const ts = { run: null };
+const mixQs = qs => qs.map(q => ({ ...q, o: shuffle(q.o) }));
 async function renderTest() {
   const id = String(arg || '');
   if (ts.run && ts.run.id === id && !ts.run.done) return drawTestQ();
-  if (id === 'personaje') { ts.run = { id, kind: 'pers', qs: PQ, players: [{ name: pName(D.profile), ans: [] }], i: 0, p: 0 }; return drawTestQ(); }
+  if (id === 'personaje') { ts.run = { id, kind: 'pers', qs: mixQs(PQ), players: [{ name: pName(D.profile), ans: [] }], i: 0, p: 0 }; return drawTestQ(); }
   if (id.startsWith('duo-')) {
     const cid = id.slice(4); if (!D.conns.length) await loadConns();
     const c = D.conns.find(x => x.id === cid && x.status === 'accepted'); if (!c) return go('juntos');
-    ts.run = { id, kind: 'duo', cid, c, qs: PQ, players: [{ name: pName(D.profile), ans: [] }, { name: pName(c.other), ans: [] }], i: 0, p: 0, waiting: true }; return drawTestQ();
+    ts.run = { id, kind: 'duo', cid, c, qs: mixQs(PQ), players: [{ name: pName(D.profile), ans: [] }, { name: pName(c.other), ans: [] }], i: 0, p: 0, waiting: true }; return drawTestQ();
   }
   const st = STESTS.find(x => x.id === id); if (!st) return go('tests');
   if (!(await sagaUnlocked(st))) { toast('Primero marcá como vista ' + st.lock); return go('tests'); }
-  ts.run = { id, kind: 'saga', st, qs: st.qs, players: [{ name: pName(D.profile), ans: [] }], i: 0, p: 0 }; drawTestQ();
+  ts.run = { id, kind: 'saga', st, qs: mixQs(st.qs), players: [{ name: pName(D.profile), ans: [] }], i: 0, p: 0 }; drawTestQ();
 }
 function drawTestQ() {
   const r = ts.run, P = r.players[r.p];
@@ -1426,12 +1459,14 @@ function renderMe() {
    <div class="acts"><a class="btn small" href="#resumen">Mi resumen</a><a class="btn ghost small" href="#trivia">Trivia</a><a class="btn ghost small" href="#tests">Tests</a><a class="btn ghost small" href="#editar">Editar personaje y estilo</a>${CLOUD ? `<button class="btn ghost small" id="cpl">Copiar link de mi perfil</button><button class="btn ghost small" id="logout">Cerrar sesión</button>` : ''}</div></div></section>
   <div class="tools" style="margin-top:22px"><div class="seg" id="mtab"><button data-v="vistas" aria-pressed="${mine.tab === 'vistas'}">Vistas (${W.length})</button><button data-v="quiero" aria-pressed="${mine.tab === 'quiero'}">Quiero ver (${A.length})</button><button data-v="actores" aria-pressed="${mine.tab === 'actores'}">Actores (${F.length})</button></div></div>
   ${body}
-  <details class="box" style="margin-top:40px"><summary><b>Ajustes y copia de seguridad</b></summary>
+  ${CLOUD ? `<section class="box" style="margin-top:34px"><h3>🔔 Notificaciones</h3><div id="pushbox"><p class="muted">Cargando…</p></div></section>` : ''}
+  <details class="box" style="margin-top:18px"><summary><b>Ajustes y copia de seguridad</b></summary>
    <form id="setf"><label class="field"><span>País</span><small>Para “dónde verla”, la ruleta y los estrenos</small><select id="sr">${[['AR', 'Argentina'], ['UY', 'Uruguay'], ['CL', 'Chile'], ['MX', 'México'], ['ES', 'España'], ['CO', 'Colombia'], ['PE', 'Perú'], ['US', 'Estados Unidos']].map(r => `<option value="${r[0]}" ${L.region === r[0] ? 'selected' : ''}>${r[1]}</option>`).join('')}</select></label>
    <label class="field"><span>Idioma de títulos y sinopsis</span><select id="sl"><option value="es-MX">Español latino</option><option value="es-ES">Español de España</option><option value="en-US">Inglés</option></select></label>
    ${CLOUD ? '' : `<label class="field"><span>Clave de TMDB</span><input id="sk" value="${esc(L.key)}" autocomplete="off"></label>`}
    <div class="acts"><button class="btn">Guardar ajustes</button><button type="button" class="btn ghost" id="exp">Descargar copia</button>${CLOUD ? '' : '<label class="btn ghost">Cargar copia<input type="file" id="impf" accept=".json" hidden></label>'}</div><p class="err" id="serr"></p></form></details>`;
   $('#sl').value = L.lang;
+  drawPushBox();
   if ($('#msort')) { $('#msort').value = mine.sort; $('#msort').onchange = e => { mine.sort = e.target.value; renderMe(); }; }
   $('#mtab').onclick = e => { if (e.target.dataset.v) { mine.tab = e.target.dataset.v; renderMe(); } };
   if ($('#mtype')) $('#mtype').onclick = e => { if (e.target.dataset.v) { mine.type = e.target.dataset.v; renderMe(); } };
@@ -1567,7 +1602,7 @@ async function openDetail(k, silent) {
   const m = $('#modal'), sh = $('#sheet');
   if (!silent) { m.classList.add('open'); document.body.style.overflow = 'hidden'; sh.innerHTML = `<button class="close" data-close aria-label="Cerrar">✕</button><div class="hero"></div>${spinner()}`; if (!history.state || !history.state.modal) history.pushState({ modal: 1 }, ''); }
   let d = n._d;
-  if (!d) { try { d = await api(`${n.type}/${n.id}`, { append_to_response: `${n.type === 'tv' ? 'aggregate_credits' : 'credits'},recommendations,watch/providers` }); n._d = d; if (d.genres) n.g = d.genres.map(g => g.id); } catch (e) { sh.innerHTML = `<button class="close" data-close aria-label="Cerrar">✕</button><p class="err" style="padding:30px">${esc(e.message)}</p>`; return; } }
+  if (!d) { try { d = await api(`${n.type}/${n.id}`, { append_to_response: `${n.type === 'tv' ? 'aggregate_credits' : 'credits'},recommendations,watch/providers,videos`, include_video_language: L.lang.slice(0, 2) + ',en,null' }); n._d = d; if (d.genres) n.g = d.genres.map(g => g.id); if (!n.title) Object.assign(n, { title: d.title || d.name || '', poster: d.poster_path, year: (d.release_date || d.first_air_date || '').slice(0, 4), vote: d.vote_average || 0 }); } catch (e) { sh.innerHTML = `<button class="close" data-close aria-label="Cerrar">✕</button><p class="err" style="padding:30px">${esc(e.message)}</p>`; return; } }
   if (openKey !== k) return;
   const keepScroll = silent && prevKey === k ? m.scrollTop : 0;
   const t = T(), w = D.watched[k], wa = D.want[k];
@@ -1580,6 +1615,9 @@ async function openDetail(k, silent) {
   const dir = (d.credits?.crew || []).filter(c => c.job === 'Director').slice(0, 2);
   const creators = d.created_by || [];
   const acc = CLOUD && user ? accepted() : [];
+  const vids = (d.videos?.results || []).filter(v => v.site === 'YouTube' && /^[\w-]{6,20}$/.test(v.key));
+  const lang2 = L.lang.slice(0, 2);
+  const trailer = [...vids].sort((a, b) => ((b.type === 'Trailer') - (a.type === 'Trailer')) || ((b.iso_639_1 === lang2) - (a.iso_639_1 === lang2)) || ((b.official ? 1 : 0) - (a.official ? 1 : 0)))[0];
   const castBtn = c => `<button data-person="${c.id}" data-close><div class="face">${c.profile_path ? `<img loading="lazy" src="${img(c.profile_path, 'w185')}" alt="">` : esc(c.name.slice(0, 1))}</div><b>${esc(c.name)}</b>${c.character ? `<small>${esc(c.character)}</small>` : ''}${D.follows[c.id] ? '<small class="why">Lo seguís</small>' : ''}</button>`;
   sh.innerHTML = `<button class="close" data-close aria-label="Cerrar">✕</button>
   <div class="hero" style="background-image:url('${img(d.backdrop_path, 'w1280')}')"></div>
@@ -1589,6 +1627,7 @@ async function openDetail(k, silent) {
    <div class="facts">${[n.year, n.type === 'tv' ? 'Serie' : 'Película', dur, (d.genres || []).map(g => g.name).join(', '), d.vote_average ? `★ ${d.vote_average.toFixed(1)} en TMDB` : ''].filter(Boolean).map(esc).join(' · ')}</div>
    <div class="acts"><button class="btn${w ? ' on' : ''}" data-tick="${k}">${icon(t.mark, 20)}${w ? 'Ya la vi' : 'Marcar como vista'}</button>
    ${w ? '' : `<button class="btn ghost" data-want="${k}">${icon(t.want, 20)}${wa ? 'En “quiero ver”' : 'Quiero verla'}</button>`}
+   ${trailer ? `<button class="btn ghost" id="trl" data-yt="${trailer.key}">${icon({ d: 'M8 5.5v13l10.5-6.5z', fill: 1 }, 18)}Ver tráiler</button>` : ''}
    ${d.belongs_to_collection ? `<a class="btn ghost" href="#saga-col${d.belongs_to_collection.id}" data-close>Ver saga: ${esc(d.belongs_to_collection.name)}</a>` : ''}</div>
    ${acc.length ? acc.map(c => { const s = (D.cpl[c.id] || {})[k]?.status; return `<div class="together">${pAvatar(c.other, 30)}<span>Con ${esc(pName(c.other))}:</span><button class="chipbtn" data-cpl="${c.id}|watched" aria-pressed="${s === 'watched'}">La vimos juntos</button><button class="chipbtn" data-cpl="${c.id}|want" aria-pressed="${s === 'want'}">Queremos verla</button></div>`; }).join('') : ''}
    <p>${esc(d.overview || 'Sin sinopsis en español todavía.')}</p>
@@ -1611,6 +1650,7 @@ async function openDetail(k, silent) {
   ${recs.length ? `<div class="full"><h3>Si te gustó, mirá</h3><div class="hrow">${recs.map(r => card(r)).join('')}</div></div>` : ''}
   </div>`;
   if (keepScroll) m.scrollTop = keepScroll;
+  const tb = $('#trl'); if (tb) tb.onclick = () => { const h = sh.querySelector('.hero'); h.classList.add('playing'); h.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${tb.dataset.yt}?autoplay=1&rel=0" title="Tráiler" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`; m.scrollTo({ top: 0, behavior: 'smooth' }); };
   const ca = $('#castall'); if (ca) ca.onclick = () => { castOpen = true; openDetail(k, true).then(() => $('#castq')?.focus()); };
   const cq = $('#castq'); if (cq) cq.oninput = () => { const q = fold(cq.value); $('#castgrid').innerHTML = castAll.filter(c => !q || fold(c.name + ' ' + (c.character || '')).includes(q)).map(castBtn).join('') || '<p class="muted">Nadie coincide.</p>'; };
   if (w) {
@@ -1636,6 +1676,72 @@ function closeDetail(fromPop) {
   if (!fromPop && history.state && history.state.modal) history.back();
 }
 
+/* ===================== Notificaciones ===================== */
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const b64u8 = b => { const p = '='.repeat((4 - b.length % 4) % 4), s = atob((b + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(s, c => c.charCodeAt(0)); };
+async function pushState() {
+  if (!CLOUD || !user || !pushSupported()) return { on: false };
+  try {
+    const reg = await navigator.serviceWorker.getRegistration(); const sub = reg && await reg.pushManager.getSubscription();
+    if (!sub || Notification.permission !== 'granted') return { on: false };
+    const r = await sb.from('push_subs').select('prefs').eq('endpoint', sub.endpoint).maybeSingle();
+    return r.data ? { on: true, prefs: { estrenos: true, recordatorios: true, ...(r.data.prefs || {}) }, sub } : { on: false, sub };
+  } catch (e) { return { on: false }; }
+}
+async function enablePush(prefs = { estrenos: true, recordatorios: true }) {
+  if (!pushSupported()) throw new Error(isIOS && !isStandalone() ? 'En iPhone primero agregá MiCine a la pantalla de inicio (Compartir → Agregar a inicio) y abrila desde ahí.' : 'Este navegador no permite notificaciones.');
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') throw new Error('No se dio permiso. Podés habilitarlo en los ajustes del navegador para este sitio.');
+  const reg = await navigator.serviceWorker.ready;
+  const { vapid } = await (await fetch(`${CFG.supabaseUrl}/functions/v1/notify`)).json();
+  if (!vapid) throw new Error('El servidor de avisos todavía no está listo. Probá en unos minutos.');
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u8(vapid) });
+  const j = sub.toJSON();
+  const r = await sb.from('push_subs').upsert({ endpoint: j.endpoint, user_id: user.id, p256dh: j.keys.p256dh, auth: j.keys.auth, prefs });
+  if (r.error) throw new Error('No se pudo guardar la suscripción: ' + r.error.message);
+}
+async function disablePush() {
+  const st = await pushState(); const sub = st.sub;
+  if (sub) { await sb.from('push_subs').delete().eq('endpoint', sub.endpoint); try { await sub.unsubscribe(); } catch (e) {} }
+}
+async function drawPushBox() {
+  const box = $('#pushbox'); if (!box) return;
+  if (!CLOUD) { box.innerHTML = '<p class="muted">Las notificaciones funcionan con cuentas.</p>'; return; }
+  const st = await pushState();
+  const iosHint = isIOS && !isStandalone() ? '<p class="note" style="margin-top:12px">En iPhone, primero agregá MiCine a la pantalla de inicio: tocá <b>Compartir</b> → <b>Agregar a inicio</b>, y abrila desde ese ícono.</p>' : '';
+  box.innerHTML = st.on ? `<p>✅ Avisos activados en este dispositivo.</p>
+    <label class="chk"><input type="checkbox" id="pe" ${st.prefs.estrenos ? 'checked' : ''}> Estrenos de actores que seguís y de sagas que viste</label>
+    <label class="chk"><input type="checkbox" id="pr" ${st.prefs.recordatorios ? 'checked' : ''}> Recordatorio de los viernes con una peli de tus géneros</label>
+    <div class="acts"><button class="btn ghost small" id="poff">Desactivar en este dispositivo</button></div><p class="err" id="perr2"></p>`
+    : `<p class="muted">Te aviso cuando se estrena algo de un actor que seguís o de una saga que viste, y los viernes te sugiero una peli. Como mucho 2 avisos por día.</p>${iosHint}
+    <div class="acts"><button class="btn small" id="pon">🔔 Activar notificaciones</button></div><p class="err" id="perr2"></p>`;
+  const err = m => { $('#perr2').textContent = m; };
+  if ($('#pon')) $('#pon').onclick = async () => { $('#pon').disabled = true; try { await enablePush(); toast('¡Avisos activados!'); drawPushBox(); } catch (e) { err(e.message); $('#pon').disabled = false; } };
+  if ($('#poff')) $('#poff').onclick = async () => { await disablePush(); toast('Avisos desactivados'); drawPushBox(); };
+  const save = async () => { const prefs = { estrenos: $('#pe').checked, recordatorios: $('#pr').checked }; const r = await sb.from('push_subs').update({ prefs }).eq('endpoint', st.sub.endpoint); if (r.error) err('No se pudo guardar.'); else toast('Preferencias guardadas'); };
+  if ($('#pe')) { $('#pe').onchange = save; $('#pr').onchange = save; }
+}
+
+/* ===================== Filas desplazables con mouse ===================== */
+const canHover = matchMedia('(hover: hover) and (pointer: fine)').matches;
+function enhanceScrollers(root = document) {
+  if (!canHover) return;
+  root.querySelectorAll('.chips:not([data-sc]), .hrow:not([data-sc]), .castrow:not([data-sc])').forEach(row => {
+    row.dataset.sc = '1';
+    const wrap = document.createElement('div'); wrap.className = 'scwrap'; row.parentNode.insertBefore(wrap, row); wrap.appendChild(row);
+    const mk = (dir, txt) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'scbtn ' + dir; b.setAttribute('aria-label', dir === 'l' ? 'Desplazar a la izquierda' : 'Desplazar a la derecha'); b.textContent = txt; b.onclick = () => row.scrollBy({ left: (dir === 'l' ? -1 : 1) * row.clientWidth * 0.8, behavior: 'smooth' }); wrap.appendChild(b); return b; };
+    const l = mk('l', '‹'), r = mk('r', '›');
+    const upd = () => { l.hidden = row.scrollLeft < 4; r.hidden = row.scrollLeft + row.clientWidth >= row.scrollWidth - 4; };
+    row.addEventListener('scroll', upd, { passive: true }); new ResizeObserver(upd).observe(row); setTimeout(upd, 50);
+    row.addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && row.scrollWidth > row.clientWidth) { const max = row.scrollWidth - row.clientWidth; if ((e.deltaY < 0 && row.scrollLeft > 0) || (e.deltaY > 0 && row.scrollLeft < max)) { e.preventDefault(); row.scrollLeft += e.deltaY; } } }, { passive: false });
+  });
+}
+const scObs = new MutationObserver(() => enhanceScrollers());
+scObs.observe(document.body, { childList: true, subtree: true });
+
 /* ===================== Eventos ===================== */
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-tick],[data-open],[data-want],[data-follow],[data-person],[data-close],[data-cpl],[data-accept],[data-remove],[data-invite],[data-addj],[data-jtab]');
@@ -1659,6 +1765,7 @@ addEventListener('hashchange', () => { if ($('#modal').classList.contains('open'
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && CLOUD && user) loadConns().catch(() => {}); });
 
 /* ===================== Arranque ===================== */
+if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(e => console.warn('sw', e)));
 async function boot() {
   if (CLOUD && sb) {
     const { data } = await sb.auth.getSession();

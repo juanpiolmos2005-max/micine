@@ -497,3 +497,35 @@ label.chk.big span{color:var(--mute)}label.chk.big b{color:var(--ink)}
 .tbadge{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:999px;font-size:13px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--b1,var(--acc)),var(--b2,color-mix(in srgb,var(--acc) 50%,#000)))}
 .badgelink{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-weight:700;font-size:14px}
 @media(max-width:560px){.tbadges{justify-content:center}}
+
+/* ===== Carrusel de tendencias ===== */
+.hero-car{position:relative;margin:0 0 18px;border-radius:22px;overflow:hidden;background:var(--panel);box-shadow:0 14px 40px #0005}
+.hc-track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.hc-track::-webkit-scrollbar{display:none}
+.hc-slide{position:relative;flex:0 0 100%;scroll-snap-align:start;min-height:clamp(300px,46vw,470px);background:var(--panel) center/cover;display:flex;align-items:flex-end}
+.hc-slide:before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 25%,#000d 100%),linear-gradient(90deg,#000a,transparent 65%)}
+.hc-slide.skel{background:linear-gradient(100deg,var(--panel) 30%,var(--line) 50%,var(--panel) 70%);background-size:200% 100%;animation:shimmer 1.4s linear infinite}
+.hc-info{position:relative;padding:clamp(18px,4vw,40px);padding-bottom:clamp(40px,6vw,56px);color:#fff;max-width:640px}
+.hc-info h3{font-size:clamp(30px,5.5vw,54px);text-shadow:0 2px 16px #000a;margin:6px 0 4px}
+.hc-info p{margin:0;opacity:.92}
+.hc-ov{margin-top:8px!important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:56ch}
+.hc-info .acts{margin-top:14px}.hc-info .btn.ghost{background:#0006;color:#fff;border-color:#fff5;backdrop-filter:blur(6px)}
+.hc-tag{display:inline-block;background:var(--acc);color:var(--on);font-weight:800;font-size:12px;border-radius:6px;padding:3px 8px}
+.hc-dots{position:absolute;left:0;right:0;bottom:14px;display:flex;justify-content:center;gap:6px}
+.hc-dots button{width:8px;height:8px;border-radius:9px;border:0;padding:0;background:#fff7;transition:width .25s}
+.hc-dots button[aria-current=true]{width:24px;background:#fff}
+.hc-nav{position:absolute;top:50%;transform:translateY(-50%);width:46px;height:46px;border-radius:50%;border:0;background:#0008;color:#fff;font-size:28px;line-height:1;display:none}
+.hc-nav.prev{left:12px}.hc-nav.next{right:12px}
+@media(hover:hover) and (pointer:fine){.hero-car:hover .hc-nav{display:grid;place-items:center}}
+.hello-s{font-size:clamp(26px,4vw,36px)!important}
+@media(max-width:760px){.hero-car{margin:-4px -16px 16px;border-radius:0}.hc-info .acts{display:flex}.hc-info .acts .btn{flex:1}}
+/* ===== Filas desplazables con mouse ===== */
+.scwrap{position:relative}
+.scbtn{position:absolute;top:50%;transform:translateY(-50%);z-index:4;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 92%,transparent);color:var(--ink);font-size:24px;line-height:1;display:grid;place-items:center;box-shadow:0 4px 14px #0005;opacity:0;transition:opacity .15s}
+.scbtn.l{left:-6px}.scbtn.r{right:-6px}
+.scwrap:hover .scbtn{opacity:1}
+.scwrap>.chips+.scbtn,.scwrap>.chips~.scbtn{width:34px;height:34px;font-size:20px;top:calc(50% - 3px)}
+/* ===== Tráiler ===== */
+.hero.playing{aspect-ratio:16/9;min-height:0}.hero.playing:after{display:none}
+.hero iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.hero.playing+.dbody{margin-top:16px}

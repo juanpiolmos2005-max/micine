@@ -1,0 +1,28 @@
+name: Enviar avisos
+
+# Todos los días a las 17:00 de Argentina (20:00 UTC) revisa estrenos y, los viernes,
+# manda el recordatorio de "viernes de cine". También corre después de cada despliegue.
+on:
+  schedule:
+    - cron: "0 20 * * *"
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Desplegar backend (Supabase)"]
+    types: [completed]
+
+jobs:
+  send:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - name: Revisar y enviar
+        run: |
+          CRON=$(printf '%s' "$SUPABASE_DB_PASSWORD-micine-cron" | sha256sum | cut -c1-40)
+          echo "::add-mask::$CRON"
+          curl -sS -X POST "https://$PROJECT_REF.supabase.co/functions/v1/notify" \
+            -H "x-cron-secret: $CRON" -H "content-type: application/json" -d '{}' \
+            -w "\nHTTP %{http_code}\n" | tee out.txt
+          grep -q "HTTP 200" out.txt
