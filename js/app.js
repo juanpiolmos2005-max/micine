@@ -1765,7 +1765,10 @@ addEventListener('hashchange', () => { if ($('#modal').classList.contains('open'
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && CLOUD && user) loadConns().catch(() => {}); });
 
 /* ===================== Arranque ===================== */
-if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(e => console.warn('sw', e)));
+if ('serviceWorker' in navigator) {
+  const regSW = () => navigator.serviceWorker.register('sw.js').catch(e => console.warn('sw', e));
+  if (document.readyState === 'complete') regSW(); else addEventListener('load', regSW);
+}
 async function boot() {
   if (CLOUD && sb) {
     const { data } = await sb.auth.getSession();
