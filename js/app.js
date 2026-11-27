@@ -1,6 +1,7 @@
 import { THEMES, icon } from './themes.js';
 import { AVATARS, avatarSVG, SKINS, COLORS } from './avatars.js';
 import { SAGAS } from './sagas.js';
+import { TRAITS, TRAIT_NAMES, CHARS, DUOS, PQ, STESTS } from './tests.js';
 
 /* =========================================================================
    MODO: "nube" (Supabase: cuentas + servidor TMDB) o "personal" (clave propia)
@@ -60,6 +61,7 @@ const fold = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLow
 const STAR = { d: 'M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z', fill: 1 };
 const SEARCH = { d: 'M10.5 4a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13zM15.5 15.5 21 21' };
 const QUIZ = { d: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM9.2 9.3a2.9 2.9 0 1 1 3.9 2.7c-.7.3-1.1.9-1.1 1.6v.6M12 17h.01' };
+const MASK = { d: 'M4 5c3.5 1.6 12.5 1.6 16 0 0 8.5-3 14-8 14S4 13.5 4 5zM8 10h2.5M13.5 10H16M9.5 14.5c1.5 1.2 3.5 1.2 5 0' };
 const DICE = { d: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM8 7h.01M16 7h.01M12 12h.01M8 17h.01M16 17h.01' };
 const stars = (r, size = 13) => r ? `<span class="stars-s" aria-label="${r} de 5">${[1, 2, 3, 4, 5].map(i => `<span class="${i <= r ? 'on' : ''}">${icon(STAR, size)}</span>`).join('')}</span>` : '';
 let toastT;
@@ -290,7 +292,7 @@ function renderBadge() {
   document.querySelectorAll('.badge').forEach(b => { b.hidden = !n; b.textContent = n; });
 }
 function markNav() {
-  const v = { actor: 'explorar', actores: 'explorar', personajes: 'explorar', editar: 'yo', resumen: 'yo', ruleta: arg ? 'juntos' : 'parati', trivia: arg ? 'juntos' : 'parati', perfil: 'juntos' }[view] || view;
+  const v = { actor: 'explorar', actores: 'explorar', personajes: 'explorar', editar: 'yo', resumen: 'yo', ruleta: arg ? 'juntos' : 'parati', trivia: arg ? 'juntos' : 'parati', tests: 'parati', test: String(arg || '').startsWith('duo-') ? 'juntos' : 'parati', perfil: 'juntos' }[view] || view;
   document.querySelectorAll('[data-nav]').forEach(a => a.dataset.nav === v ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
 }
 let view = 'explorar', arg = null;
@@ -298,9 +300,9 @@ const go = h => { if (location.hash.slice(1) === h) route(); else location.hash 
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   arg = null;
-  const pre = [['saga-', 'sagas'], ['actor-', 'actor'], ['juntos-', 'juntos'], ['u-', 'perfil'], ['ruleta-', 'ruleta'], ['trivia-', 'trivia']].find(([p]) => h.startsWith(p));
+  const pre = [['saga-', 'sagas'], ['actor-', 'actor'], ['juntos-', 'juntos'], ['u-', 'perfil'], ['ruleta-', 'ruleta'], ['trivia-', 'trivia'], ['test-', 'test']].find(([p]) => h.startsWith(p));
   if (pre) { view = pre[1]; arg = h.slice(pre[0].length); if (view === 'actor') arg = +arg; }
-  else view = ['explorar', 'sagas', 'parati', 'actores', 'personajes', 'juntos', 'ruleta', 'trivia', 'resumen', 'yo', 'editar', 'nueva-clave'].includes(h) ? h : 'explorar';
+  else view = ['explorar', 'sagas', 'parati', 'actores', 'personajes', 'juntos', 'ruleta', 'trivia', 'tests', 'resumen', 'yo', 'editar', 'nueva-clave'].includes(h) ? h : 'explorar';
   if (view !== 'editar') applyTheme(curTheme());
   markNav();
   render();
@@ -308,7 +310,7 @@ function route() {
 function render() {
   if (!CLOUD && !L.key && view !== 'editar') return renderHello();
   if (CLOUD && user && !D.profile && view !== 'editar' && view !== 'nueva-clave') { location.replace('#editar'); return; }
-  ({ explorar: renderExplore, sagas: renderSagas, parati: renderRecs, actores: renderPeople, personajes: renderCharacters, actor: renderActor, juntos: renderJuntos, perfil: renderUser, ruleta: renderRoulette, trivia: renderTrivia, resumen: renderSummary, yo: renderMe, editar: renderEditor, 'nueva-clave': renderNewPass })[view]();
+  ({ explorar: renderExplore, sagas: renderSagas, parati: renderRecs, actores: renderPeople, personajes: renderCharacters, actor: renderActor, juntos: renderJuntos, perfil: renderUser, ruleta: renderRoulette, trivia: renderTrivia, tests: renderTests, test: renderTest, resumen: renderSummary, yo: renderMe, editar: renderEditor, 'nueva-clave': renderNewPass })[view]();
 }
 function refresh() {
   if (['explorar', 'parati', 'actor', 'personajes', 'perfil', 'ruleta'].includes(view)) {
@@ -681,7 +683,7 @@ let recsCache = null;
 async function renderRecs() {
   const W = Object.values(D.watched), F = Object.values(D.follows), G = (D.profile && D.profile.fav_genres) || [];
   app.innerHTML = `<div class="headrow"><div><h2 class="sec">Para vos</h2><p class="muted">Según lo que viste, cómo lo puntuaste, los actores que seguís y tus géneros favoritos.</p></div>
-  <div class="acts"><a class="btn" href="#ruleta">${icon(DICE, 20)}¿Qué vemos hoy?</a><a class="btn ghost" href="#trivia">${icon(QUIZ, 20)}Trivia</a></div></div><div id="recbody">${spinner()}</div>`;
+  <div class="acts"><a class="btn" href="#ruleta">${icon(DICE, 20)}¿Qué vemos hoy?</a><a class="btn ghost" href="#trivia">${icon(QUIZ, 20)}Trivia</a><a class="btn ghost" href="#tests">${icon(MASK, 20)}Tests</a></div></div><div id="recbody">${spinner()}</div>`;
   if (needsAccount() || (!W.length && !F.length && !G.length)) {
     $('#recbody').innerHTML = emptyBox('Marcá lo que ya viste (y puntualo), seguí a algún actor o elegí tus géneros favoritos y acá te armo recomendaciones a tu medida.',
       `<p><a class="btn" href="#explorar">Explorar</a> <a class="btn ghost" href="#actores">Buscar actores</a></p>`);
@@ -776,7 +778,7 @@ async function renderCouple(cid) {
   const vimos = list.filter(([, v]) => v.status === 'watched').sort((a, b) => b[1].at - a[1].at), queremos = list.filter(([, v]) => v.status === 'want').sort((a, b) => b[1].at - a[1].at);
   app.innerHTML = `<a class="back" href="#juntos">← Juntos</a>
   <section class="couple"><span class="pair big">${myAvatar(96)}${pAvatar(c.other, 96)}</span><div><h2 class="sec">Vos y ${esc(pName(c.other))}</h2>
-   <div class="acts"><a class="btn" href="#ruleta-${cid}">${icon(DICE, 20)}¿Qué vemos hoy?</a><a class="btn ghost" href="#trivia-${cid}">${icon(QUIZ, 20)}Duelo de preguntas</a><button class="btn ghost" id="goadd">+ Agregar las que ya vimos</button><a class="btn ghost" href="#u-${esc(c.other.username)}">Ver perfil de ${esc(pName(c.other))}</a></div></div></section>
+   <div class="acts"><a class="btn" href="#ruleta-${cid}">${icon(DICE, 20)}¿Qué vemos hoy?</a><a class="btn ghost" href="#trivia-${cid}">${icon(QUIZ, 20)}Duelo de preguntas</a><a class="btn ghost" href="#test-duo-${cid}">${icon(MASK, 20)}¿Qué dupla somos?</a><button class="btn ghost" id="goadd">+ Agregar las que ya vimos</button><a class="btn ghost" href="#u-${esc(c.other.username)}">Ver perfil de ${esc(pName(c.other))}</a></div></div></section>
   <div class="tools"><div class="seg" id="jt"><button data-v="vimos" aria-pressed="${jtab.tab === 'vimos'}">Vimos juntos (${vimos.length})</button><button data-v="queremos" aria-pressed="${jtab.tab === 'queremos'}">Queremos ver (${queremos.length})</button><button data-v="recs" aria-pressed="${jtab.tab === 'recs'}">Para ver juntos</button><button data-v="agregar" aria-pressed="${jtab.tab === 'agregar'}">+ Agregar vistas antes</button></div></div>
   <div id="jbody"></div>
   <p class="muted" style="margin-top:34px;font-size:14px">Para sumar títulos a esta lista, abrí cualquier peli o serie y tocá “La vimos juntos” o “Queremos verla”. <button class="linkbtn" data-remove="${cid}">Desconectarse</button></p>`;
@@ -899,7 +901,7 @@ async function renderUser() {
   const W = lib ? Object.entries(lib.watched) : [], A = lib ? Object.entries(lib.want) : [];
   const btn = !user ? '<a class="btn" href="#yo">Creá tu cuenta para conectarte</a>' : !c ? `<button class="btn" data-invite="${esc(u.username)}">Conectar</button>` : c.status === 'pending' ? (c.incoming ? `<button class="btn" data-accept="${c.id}">Aceptar invitación</button>` : '<span class="muted">Invitación enviada</span>') : `<a class="btn" href="#juntos-${c.id}">Ver lista juntos</a>`;
   const l = (ut.tab === 'vistas' ? W : A).map(([k, v]) => (REG[k] = Object.assign(REG[k] || {}, { id: v.id, type: v.type, title: v.title, poster: v.poster, year: v.year, vote: v.vote }), v)).sort((a, b) => b.at - a.at);
-  app.innerHTML = `<section class="profile">${pAvatar(u, 140)}<div><h2>${esc(pName(u))}</h2><div class="handle">@${esc(u.username)}</div>${u.bio ? `<p style="margin:8px 0 0">${esc(u.bio)}</p>` : ''}
+  app.innerHTML = `<section class="profile">${pAvatar(u, 140)}<div><h2>${esc(pName(u))}</h2><div class="handle">@${esc(u.username)}</div>${u.bio ? `<p style="margin:8px 0 0">${esc(u.bio)}</p>` : ''}${badges(u)}
    ${visible && lib ? `<div class="stats"><div class="stat"><b>${W.filter(([k]) => k.startsWith('movie')).length}</b><span>películas</span></div><div class="stat"><b>${W.filter(([k]) => k.startsWith('tv')).length}</b><span>series</span></div><div class="stat"><b>${A.length}</b><span>quiere ver</span></div></div>` : ''}
    <div class="acts">${btn}</div></div></section>
   ${!visible ? emptyBox('Este perfil es privado. Cuando se conecten, van a poder ver sus listas.') : !user ? emptyBox('Entrá con tu cuenta para ver sus listas.') : `
@@ -1177,6 +1179,149 @@ function endGame() {
 }
 addEventListener('hashchange', () => { if (view !== 'trivia') clearInterval(tqTick); });
 
+/* ===================== Tests de personalidad ===================== */
+const tvec = o => TRAITS.map(k => (o && o[k]) || 0);
+const cosine = (a, b) => { let d = 0, x = 0, y = 0; for (let i = 0; i < a.length; i++) { d += a[i] * b[i]; x += a[i] * a[i]; y += b[i] * b[i]; } return x && y ? d / Math.sqrt(x * y) : 0; };
+const savedTests = p => ((p && p.prefs && p.prefs.tests) || {});
+function badges(p) {
+  const t = savedTests(p); const out = [];
+  if (t.personaje) { const c = CHARS.find(x => x.id === t.personaje); if (c) out.push(`<span class="tbadge">${icon(MASK, 14)} ${esc(c.name)}</span>`); }
+  for (const st of STESTS) if (t[st.id] && st.out[t[st.id]]) { const o = st.out[t[st.id]]; out.push(`<span class="tbadge" style="--b1:${o.c1};--b2:${o.c2}">${esc(o.name)}</span>`); }
+  return out.length ? `<div class="tbadges">${out.join('')}</div>` : '';
+}
+async function saveTest(key, val) {
+  const p = D.profile; if (!p) return;
+  const prefs = { ...(p.prefs || {}), tests: { ...savedTests(p), [key]: val } };
+  const data = { username: p.username || 'yo', display_name: p.display_name || p.username || 'Cinéfilo', avatar: p.avatar, color: p.color, theme: p.theme, bio: p.bio || '', fav_genres: p.fav_genres || [], prefs };
+  if (CLOUD) data.is_public = !!p.is_public;
+  try { await saveProfile(data); } catch (e) { console.warn(e); }
+}
+async function titlesOf(list) { // resuelve las pelis/series de personajes y duplas (con caché compartida con las sagas)
+  const todo = list.filter(c => !L.cache[ckey(c.q)]);
+  for (let i = 0; i < todo.length; i += 6) await Promise.all(todo.slice(i, i + 6).map(c => resolveItem(c.q)));
+  if (todo.length) saveL();
+}
+const nOf = c => L.cache[ckey(c.q)];
+function tasteGenres(extraWatched = []) {
+  const g = new Set((D.profile && D.profile.fav_genres) || []);
+  for (const w of [...Object.values(D.watched), ...extraWatched]) for (const x of (w.g || [])) g.add(x);
+  return g;
+}
+function rankTargets(list, vec, seen, genresSet) {
+  return list.map(c => {
+    const n = nOf(c), watched = !!(n && seen.has(kOf(n)));
+    const gm = c.g.filter(x => genresSet.has(x)).length;
+    return { c, n, watched, score: cosine(vec, tvec(c.t)) + (watched ? 0.22 : 0) + Math.min(gm, 2) * 0.04 };
+  }).sort((a, b) => b.score - a.score);
+}
+async function sagaUnlocked(st) {
+  if (st.unlock.tv) return !!D.watched['tv:' + st.unlock.tv];
+  const s = SAGAS.find(x => x.id === st.unlock.saga); if (!s) return false;
+  await resolveSaga(s); return sagaList(s, 'crono', true).some(isW);
+}
+async function renderTests() {
+  app.innerHTML = spinner('Preparando los tests…');
+  const unl = {}; for (const st of STESTS) unl[st.id] = await sagaUnlocked(st);
+  if (view !== 'tests') return;
+  const t = savedTests(D.profile), acc = CLOUD && user ? accepted() : [];
+  const me = t.personaje && CHARS.find(c => c.id === t.personaje);
+  app.innerHTML = `<a class="back" href="#parati">← Para vos</a><h2 class="sec">Tests</h2><p class="muted">Descubrí con quién te parecés. Los resultados se guardan en tu perfil para que los vean tus amigos.</p>
+  <div class="tgrid">
+   <a class="tcard main" href="#test-personaje"><span class="tico">${icon(MASK, 34)}</span><div><b>¿Qué personaje sos?</b><small>${me ? `Te salió <strong>${esc(me.name)}</strong>. ¿Volvés a probar?` : '10 preguntas. Elige entre personajes de lo que viste y de tus géneros favoritos.'}</small></div></a>
+   ${STESTS.map(st => { const r = t[st.id] && st.out[t[st.id]]; const first = Object.values(st.out)[0], last = Object.values(st.out).slice(-1)[0];
+     return unl[st.id] ? `<a class="tcard" href="#test-${st.id}" style="--b1:${(r || first).c1};--b2:${(r || last).c2}"><span class="tsym">${esc(r ? r.sym : '?')}</span><div><b>${esc(st.name)}</b><small>${r ? `Sos de <strong>${esc(r.name)}</strong>` : `${st.qs.length} preguntas`}</small></div></a>`
+       : `<div class="tcard locked"><span class="tsym">🔒</span><div><b>${esc(st.name)}</b><small>Marcá como vista ${esc(st.lock)} para desbloquearlo.</small></div></div>`; }).join('')}
+  </div>
+  ${acc.length ? `<h3 class="row-t">En pareja</h3><div class="tgrid">${acc.map(c => `<a class="tcard" href="#test-duo-${c.id}"><span class="pair">${myAvatar(40)}${pAvatar(c.other, 40)}</span><div><b>¿Qué dupla son con ${esc(pName(c.other))}?</b><small>Responden los dos en el mismo celu y les digo a qué pareja del cine se parecen.</small></div></a>`).join('')}</div>` : ''}`;
+}
+const ts = { run: null };
+async function renderTest() {
+  const id = String(arg || '');
+  if (ts.run && ts.run.id === id && !ts.run.done) return drawTestQ();
+  if (id === 'personaje') { ts.run = { id, kind: 'pers', qs: PQ, players: [{ name: pName(D.profile), ans: [] }], i: 0, p: 0 }; return drawTestQ(); }
+  if (id.startsWith('duo-')) {
+    const cid = id.slice(4); if (!D.conns.length) await loadConns();
+    const c = D.conns.find(x => x.id === cid && x.status === 'accepted'); if (!c) return go('juntos');
+    ts.run = { id, kind: 'duo', cid, c, qs: PQ, players: [{ name: pName(D.profile), ans: [] }, { name: pName(c.other), ans: [] }], i: 0, p: 0, waiting: true }; return drawTestQ();
+  }
+  const st = STESTS.find(x => x.id === id); if (!st) return go('tests');
+  if (!(await sagaUnlocked(st))) { toast('Primero marcá como vista ' + st.lock); return go('tests'); }
+  ts.run = { id, kind: 'saga', st, qs: st.qs, players: [{ name: pName(D.profile), ans: [] }], i: 0, p: 0 }; drawTestQ();
+}
+function drawTestQ() {
+  const r = ts.run, P = r.players[r.p];
+  if (r.waiting) {
+    app.innerHTML = `<section class="turn"><p class="muted">¿Qué dupla son?</p><h2 class="sec">Turno de ${esc(P.name)}</h2><p>${r.p === 0 ? 'Respondé vos primero. Después le pasás el celu.' : 'Pasale el celu 📱 y que no espíe nadie.'}</p><button class="btn spinbtn" id="tgo">Empezar</button></section>`;
+    $('#tgo').onclick = () => { r.waiting = false; drawTestQ(); }; return;
+  }
+  const q = r.qs[r.i], title = r.kind === 'saga' ? r.st.name : r.kind === 'duo' ? `¿Qué dupla son? · ${P.name}` : '¿Qué personaje sos?';
+  const st = r.kind === 'saga' ? r.st : null, o1 = st && Object.values(st.out)[0], o2 = st && Object.values(st.out).slice(-1)[0];
+  app.innerHTML = `<section class="tq"${st ? ` style="--b1:${o1.c1};--b2:${o2.c2}"` : ''}>
+   <div class="qtop"><a class="back" href="#tests" style="padding:0;min-height:0">✕</a><span class="muted">${esc(title)}</span><span class="qscore">${r.i + 1} / ${r.qs.length}</span></div>
+   <div class="qtime"><i style="width:${(r.i) / r.qs.length * 100}%"></i></div>
+   <h3 class="qq">${esc(q.q)}</h3>
+   <div class="topts">${q.o.map((o, i) => `<button data-ti="${i}">${esc(o[0])}</button>`).join('')}</div>
+   ${r.i > 0 ? '<button class="linkbtn" id="tback" style="margin-top:18px">← Volver a la anterior</button>' : ''}</section>`;
+  app.querySelector('.topts').onclick = e => { const b = e.target.closest('[data-ti]'); if (!b) return; P.ans[r.i] = +b.dataset.ti; nextTestQ(); };
+  if ($('#tback')) $('#tback').onclick = () => { r.i--; drawTestQ(); };
+}
+function nextTestQ() {
+  const r = ts.run;
+  if (r.i + 1 < r.qs.length) { r.i++; return drawTestQ(); }
+  if (r.p + 1 < r.players.length) { r.p++; r.i = 0; r.waiting = true; return drawTestQ(); }
+  r.done = true; showTestResult();
+}
+const sumPts = (qs, ans) => { const t = {}; ans.forEach((a, i) => { const pts = qs[i].o[a][1]; for (const k in pts) t[k] = (t[k] || 0) + pts[k]; }); return t; };
+async function showTestResult() {
+  const r = ts.run;
+  app.innerHTML = spinner('Calculando…');
+  if (r.kind === 'saga') {
+    const tot = sumPts(r.qs, r.players[0].ans), keys = Object.keys(r.st.out), sum = keys.reduce((s, k) => s + (tot[k] || 0), 0) || 1;
+    const win = keys.slice().sort((a, b) => (tot[b] || 0) - (tot[a] || 0))[0], o = r.st.out[win];
+    await saveTest(r.st.id, win);
+    app.innerHTML = `<section class="tres" style="--b1:${o.c1};--b2:${o.c2}"><span class="tsym big">${esc(o.sym)}</span><p>${esc(r.st.short)}</p><h2 class="sec">${esc(o.name)}</h2><p class="td">${esc(o.d)}</p></section>
+     <section class="box"><h3>Tu porcentaje</h3>${keys.map(k => `<div class="hbar"><span>${esc(r.st.out[k].name)}</span><i style="width:${(tot[k] || 0) / sum * 100}%;background:${r.st.out[k].c1}"></i><b>${Math.round((tot[k] || 0) / sum * 100)}%</b></div>`).join('')}</section>
+     ${resultActions(`En MiCine me salió ${o.name} (${r.st.short}). ¿Y a vos? 🎬`)}`;
+    return bindResult();
+  }
+  const pool = r.kind === 'duo' ? null : CHARS;
+  await titlesOf([...CHARS, ...DUOS]);
+  if (r.kind === 'pers') {
+    const v = tvec(sumPts(r.qs, r.players[0].ans));
+    const ranked = rankTargets(pool, v, new Set(Object.keys(D.watched)), tasteGenres());
+    const top = ranked[0], also = ranked.slice(1, 4);
+    await saveTest('personaje', top.c.id);
+    const myTop = TRAITS.map((k, i) => [k, v[i]]).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    app.innerHTML = `<section class="tres char">${top.n && top.n.poster ? `<img class="tpost" src="${img(top.n.poster, 'w342')}" alt="">` : `<span class="tsym big">${icon(MASK, 40)}</span>`}
+      <div><p>Sos…</p><h2 class="sec">${esc(top.c.name)}</h2><p class="from">de ${esc(top.n ? top.n.title : top.c.q[1])}${top.watched ? ' · la viste' : ''}</p><p class="td">${esc(top.c.d)}</p>
+      <div class="chips" style="flex-wrap:wrap;margin:0;padding:0">${myTop.map(([k]) => `<span class="tchip">${TRAIT_NAMES[k]}</span>`).join('')}</div></div></section>
+      <h3 class="row-t">También te parecés a…</h3><div class="alsos">${also.map(x => `<div class="also">${x.n && x.n.poster ? `<img src="${img(x.n.poster, 'w154')}" alt="">` : ''}<div><b>${esc(x.c.name)}</b><small>${esc(x.n ? x.n.title : x.c.q[1])}</small></div></div>`).join('')}</div>
+      ${resultActions(`Hice el test de MiCine y me salió que soy ${top.c.name}. ¿A quién te parecés vos? 🎬`)}`;
+    return bindResult();
+  }
+  // Dupla
+  const [a, b] = r.players.map(P => tvec(sumPts(r.qs, P.ans)));
+  const pl = await partnerLib(r.c.otherId);
+  const seen = new Set([...Object.keys(D.watched), ...Object.keys(pl.watched), ...Object.entries(D.cpl[r.cid] || {}).filter(([, v]) => v.status === 'watched').map(([k]) => k)]);
+  const gs = tasteGenres(Object.values(pl.watched)); (r.c.other.fav_genres || []).forEach(x => gs.add(x));
+  const duo = rankTargets(DUOS, a.map((x, i) => x + b[i]), seen, gs)[0];
+  const ca = rankTargets(CHARS, a, seen, gs)[0], cb = rankTargets(CHARS, b, seen, gs).find(x => x.c.id !== ca.c.id);
+  const match = Math.round((cosine(a, b) * 0.7 + 0.3) * 100);
+  await saveTest('personaje', ca.c.id);
+  app.innerHTML = `<section class="tres char">${duo.n && duo.n.poster ? `<img class="tpost" src="${img(duo.n.poster, 'w342')}" alt="">` : ''}
+    <div><p>Juntos son como…</p><h2 class="sec">${esc(duo.c.names)}</h2><p class="from">de ${esc(duo.n ? duo.n.title : duo.c.q[1])}${duo.watched ? ' · la vieron' : ''}</p><p class="td">${esc(duo.c.d)}</p>
+    <p class="match">Compatibilidad: <b>${match}%</b></p></div></section>
+    <div class="alsos two">${[[r.players[0].name, ca], [r.players[1].name, cb]].map(([nm, x]) => `<div class="also">${x.n && x.n.poster ? `<img src="${img(x.n.poster, 'w154')}" alt="">` : ''}<div><small>${esc(nm)} es</small><b>${esc(x.c.name)}</b><small>${esc(x.n ? x.n.title : x.c.q[1])}</small></div></div>`).join('')}</div>
+    ${resultActions(`En MiCine nos salió que somos como ${duo.c.names} (${match}% de compatibilidad) 💕🎬`)}`;
+  bindResult();
+}
+const resultActions = share => `<div class="acts" style="justify-content:center;margin-top:22px"><button class="btn" id="tagain">Hacerlo de nuevo</button><button class="btn ghost" id="tshare" data-share="${esc(share)}">Compartir</button><a class="btn ghost" href="#tests">Otros tests</a></div><p class="muted" style="text-align:center;font-size:13px">Tu resultado quedó guardado en tu perfil.</p>`;
+function bindResult() {
+  $('#tagain').onclick = () => { const id = ts.run.id; ts.run = null; arg = id; renderTest(); };
+  $('#tshare').onclick = async () => { const text = $('#tshare').dataset.share, data = { title: 'MiCine', text, url: location.origin + location.pathname }; if (navigator.share) { try { await navigator.share(data); return; } catch (e) { if (e.name === 'AbortError') return; } } copyText(text + ' ' + data.url, 'Copiado para compartir'); };
+  renderShell();
+}
+
 /* ===================== Resumen del mes / año ===================== */
 const sm = { period: 'month' };
 function periodRange(p) {
@@ -1276,8 +1421,9 @@ function renderMe() {
   <section class="profile">${myAvatar(140)}<div>
    <h2>${esc(pName(p))}</h2>${p.username ? `<div class="handle">@${esc(p.username)}${CLOUD ? ` · ${p.is_public ? 'Perfil público' : 'Perfil privado'}` : ''}</div>` : ''}
    ${p.bio ? `<p style="margin:8px 0 0">${esc(p.bio)}</p>` : ''}
+   ${badges(p) || `<a class="badgelink" href="#tests">${icon(MASK, 16)} Descubrí qué personaje sos</a>`}
    <div class="stats"><div class="stat"><b>${nm}</b><span>películas</span></div><div class="stat"><b>${W.length - nm}</b><span>series</span></div><div class="stat"><b>${A.length}</b><span>quiero ver</span></div><div class="stat"><b>${F.length}</b><span>actores</span></div></div>
-   <div class="acts"><a class="btn small" href="#resumen">Mi resumen</a><a class="btn ghost small" href="#trivia">Trivia</a><a class="btn ghost small" href="#editar">Editar personaje y estilo</a>${CLOUD ? `<button class="btn ghost small" id="cpl">Copiar link de mi perfil</button><button class="btn ghost small" id="logout">Cerrar sesión</button>` : ''}</div></div></section>
+   <div class="acts"><a class="btn small" href="#resumen">Mi resumen</a><a class="btn ghost small" href="#trivia">Trivia</a><a class="btn ghost small" href="#tests">Tests</a><a class="btn ghost small" href="#editar">Editar personaje y estilo</a>${CLOUD ? `<button class="btn ghost small" id="cpl">Copiar link de mi perfil</button><button class="btn ghost small" id="logout">Cerrar sesión</button>` : ''}</div></div></section>
   <div class="tools" style="margin-top:22px"><div class="seg" id="mtab"><button data-v="vistas" aria-pressed="${mine.tab === 'vistas'}">Vistas (${W.length})</button><button data-v="quiero" aria-pressed="${mine.tab === 'quiero'}">Quiero ver (${A.length})</button><button data-v="actores" aria-pressed="${mine.tab === 'actores'}">Actores (${F.length})</button></div></div>
   ${body}
   <details class="box" style="margin-top:40px"><summary><b>Ajustes y copia de seguridad</b></summary>
