@@ -265,11 +265,11 @@ function personCard(p, sub = '') {
   <button class="follow" data-follow="${p.id}" data-name="${esc(p.name)}" data-photo="${esc(p.photo || '')}" aria-pressed="${on}">${on ? 'Siguiendo' : 'Seguir'}</button></div>`;
 }
 const myAvatar = (size = 36) => pAvatar(D.profile, size);
-const searchTabs = a => `<nav class="seg stabs" aria-label="Qué buscar">${[['explorar', 'Títulos'], ['actores', 'Actores'], ['personajes', 'Personajes']].map(([h, l]) => `<a href="#${h}"${a === h ? ' aria-current="page"' : ''}>${l}</a>`).join('')}</nav>`;
+const searchTabs = a => `<nav class="seg stabs" aria-label="Qué buscar">${[['buscar', 'Títulos'], ['actores', 'Actores'], ['personajes', 'Personajes']].map(([h, l]) => `<a href="#${h}"${a === h ? ' aria-current="page"' : ''}>${l}</a>`).join('')}</nav>`;
 
 /* ===================== Navegación ===================== */
 const NAV = [
-  ['explorar', 'Explorar', { d: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM15.5 8.5l-2 5-5 2 2-5z' }],
+  ['explorar', 'Inicio', { d: 'M3.5 10.5 12 3.5l8.5 7V20a1 1 0 0 1-1 1h-5v-6h-5v6h-5a1 1 0 0 1-1-1z' }],
   ['sagas', 'Sagas', { d: 'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5' }],
   ['parati', 'Para vos', null],
   ['juntos', 'Juntos', { d: 'M8 11a3.5 3.5 0 1 0 0-7a3.5 3.5 0 1 0 0 7zM16 11a3.5 3.5 0 1 0 0-7a3.5 3.5 0 1 0 0 7zM2 20c0-3.3 2.7-5.5 6-5.5 1.6 0 3 .5 4 1.4 1-.9 2.4-1.4 4-1.4 3.3 0 6 2.2 6 5.5' }],
@@ -292,7 +292,7 @@ function renderBadge() {
   document.querySelectorAll('.badge').forEach(b => { b.hidden = !n; b.textContent = n; });
 }
 function markNav() {
-  const v = { actor: 'explorar', actores: 'explorar', personajes: 'explorar', editar: 'yo', resumen: 'yo', ruleta: arg ? 'juntos' : 'parati', trivia: arg ? 'juntos' : 'parati', tests: 'parati', test: 'parati', perfil: 'juntos' }[view] || view;
+  const v = { actor: 'explorar', actores: 'explorar', personajes: 'explorar', buscar: 'explorar', lista: 'explorar', editar: 'yo', resumen: 'yo', ruleta: arg ? 'juntos' : 'parati', trivia: arg ? 'juntos' : 'parati', tests: 'parati', test: 'parati', perfil: 'juntos' }[view] || view;
   document.querySelectorAll('[data-nav]').forEach(a => a.dataset.nav === v ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
 }
 let view = 'explorar', arg = null;
@@ -303,9 +303,9 @@ function route() {
   arg = null;
   const deep = h.match(/^t-(movie|tv)-(\d+)$/);
   if (deep) { pendingOpen = deep[1] + ':' + deep[2]; history.replaceState(null, '', '#explorar'); return route(); }
-  const pre = [['saga-', 'sagas'], ['actor-', 'actor'], ['juntos-', 'juntos'], ['u-', 'perfil'], ['ruleta-', 'ruleta'], ['trivia-', 'trivia'], ['test-', 'test']].find(([p]) => h.startsWith(p));
+  const pre = [['saga-', 'sagas'], ['actor-', 'actor'], ['juntos-', 'juntos'], ['u-', 'perfil'], ['ruleta-', 'ruleta'], ['trivia-', 'trivia'], ['test-', 'test'], ['lista-', 'lista']].find(([p]) => h.startsWith(p));
   if (pre) { view = pre[1]; arg = h.slice(pre[0].length); if (view === 'actor') arg = +arg; }
-  else view = ['explorar', 'sagas', 'parati', 'actores', 'personajes', 'juntos', 'ruleta', 'trivia', 'tests', 'resumen', 'yo', 'editar', 'nueva-clave'].includes(h) ? h : 'explorar';
+  else view = ['explorar', 'buscar', 'sagas', 'parati', 'actores', 'personajes', 'juntos', 'ruleta', 'trivia', 'tests', 'resumen', 'yo', 'editar', 'nueva-clave'].includes(h) ? h : 'explorar';
   if (view !== 'editar') applyTheme(curTheme());
   markNav();
   render();
@@ -314,10 +314,10 @@ function route() {
 function render() {
   if (!CLOUD && !L.key && view !== 'editar') return renderHello();
   if (CLOUD && user && !D.profile && view !== 'editar' && view !== 'nueva-clave') { location.replace('#editar'); return; }
-  ({ explorar: renderExplore, sagas: renderSagas, parati: renderRecs, actores: renderPeople, personajes: renderCharacters, actor: renderActor, juntos: renderJuntos, perfil: renderUser, ruleta: renderRoulette, trivia: renderTrivia, tests: renderTests, test: renderTest, resumen: renderSummary, yo: renderMe, editar: renderEditor, 'nueva-clave': renderNewPass })[view]();
+  ({ explorar: renderHome, buscar: renderExplore, lista: renderList, sagas: renderSagas, parati: renderRecs, actores: renderPeople, personajes: renderCharacters, actor: renderActor, juntos: renderJuntos, perfil: renderUser, ruleta: renderRoulette, trivia: renderTrivia, tests: renderTests, test: renderTest, resumen: renderSummary, yo: renderMe, editar: renderEditor, 'nueva-clave': renderNewPass })[view]();
 }
 function refresh() {
-  if (['explorar', 'parati', 'actor', 'personajes', 'perfil', 'ruleta'].includes(view)) {
+  if (['explorar', 'buscar', 'lista', 'parati', 'actor', 'personajes', 'perfil', 'ruleta'].includes(view)) {
     document.querySelectorAll('.card[data-k]').forEach(el => {
       const k = el.dataset.k, w = !!D.watched[k];
       el.classList.toggle('seen', w);
@@ -325,7 +325,8 @@ function refresh() {
       const wm = el.querySelector('.wantmark');
       if (w || !D.want[k]) { if (wm) wm.remove(); } else if (!wm) el.querySelector('.poster').insertAdjacentHTML('afterend', `<span class="wantmark">${icon(T().want, 16)}</span>`);
     });
-    if (view === 'explorar' && ex.hide) renderExploreList();
+    if (view === 'buscar' && ex.hide) renderExploreList();
+    if (view === 'explorar') updateHeroBtns();
   } else render();
   if (openKey) openDetail(openKey, true);
 }
@@ -372,10 +373,8 @@ async function fetchExplore(reset) {
 async function renderExplore() {
   const p = D.profile;
   app.innerHTML = `${CLOUD && !user ? `<div class="banner"><span><b>Creá tu personaje</b> para guardar lo que viste, puntuar, seguir actores y armar listas en pareja.</span><a class="btn small" href="#yo">Crear cuenta</a></div>` : ''}
-  <section class="hero-car" id="hcar" aria-roledescription="carrusel" aria-label="Tendencias de la semana"><div class="hc-track" id="hctrack"><div class="hc-slide skel"></div></div><div class="hc-dots" id="hcdots"></div>
-   <button class="hc-nav prev" id="hcprev" aria-label="Anterior">‹</button><button class="hc-nav next" id="hcnext" aria-label="Siguiente">›</button></section>
-  <h2 class="sec hello-s">${p ? `Hola, ${esc(pName(p))}` : 'Explorar'}</h2>
-  ${searchTabs('explorar')}
+  <h2 class="sec">Buscar</h2>
+  ${searchTabs('buscar')}
   <form class="tools" id="sform" role="search"><div class="search">${icon(SEARCH, 20)}<input id="q" type="search" enterkeyhint="search" placeholder="Buscar cualquier película o serie…" value="${esc(ex.q)}" aria-label="Buscar"></div>
   <div class="ctrlrow"><div class="seg" id="tseg"><button type="button" data-t="movie">Películas</button><button type="button" data-t="tv">Series</button></div>
   <label class="chk"><input type="checkbox" id="hide"> Ocultar vistas</label></div></form>
@@ -389,27 +388,106 @@ async function renderExplore() {
   $('#hide').checked = ex.hide;
   renderChips();
   if (!ex.items.length && !ex.loading) fetchExplore(true); else renderExploreList();
-  heroCarousel();
+  if (!ex.q && !ex.items.length) setTimeout(() => $('#q')?.focus(), 60);
 }
-let heroItems = null, heroTimer = null;
-async function heroCarousel() {
-  if (!heroItems) { try { heroItems = (await api('trending/all/week')).results.filter(r => r.backdrop_path && (r.media_type === 'movie' || r.media_type === 'tv')).slice(0, 8).map(r => norm(r, r.media_type)); } catch (e) { heroItems = []; } }
-  const tr = $('#hctrack'); if (!tr) return;
-  if (!heroItems.length) { $('#hcar').remove(); return; }
-  tr.innerHTML = heroItems.map((n, i) => { const k = kOf(n); return `<article class="hc-slide" style="background-image:url('${img(n.bd, 'w1280')}')" aria-label="${i + 1} de ${heroItems.length}">
-    <div class="hc-info"><span class="hc-tag">#${i + 1} en tendencias</span><h3>${esc(n.title)}</h3><p>${n.year || ''} · ${n.type === 'tv' ? 'Serie' : 'Película'}${n.vote ? ` · ★ ${(+n.vote).toFixed(1)}` : ''}</p>${n.ov ? `<p class="hc-ov">${esc(n.ov)}</p>` : ''}
-    <div class="acts"><button class="btn" data-open="${k}">Ver ficha</button><button class="btn ghost" data-want="${k}">${icon(T().want, 18)}Quiero ver</button></div></div></article>`; }).join('');
-  $('#hcdots').innerHTML = heroItems.map((_, i) => `<button aria-label="Ir a ${i + 1}" data-hc="${i}"></button>`).join('');
+/* ===================== Inicio (estilo plataforma de streaming) ===================== */
+const HOME = { type: 'movie', cats: false };
+const DEF_G = { movie: [28, 35, 27, 878, 16, 18, 10749, 53, 12], tv: [10759, 35, 18, 10765, 80, 16, 9648, 10751] };
+const rowCache = {};
+async function rowPage(key, page = 1) {
+  const [kind, type, extra] = key.split(':');
+  const base = { page };
+  const d = kind === 'trending' ? await api(`trending/${type}/week`, base)
+    : kind === 'popular' ? await api(`${type}/popular`, base)
+    : kind === 'top' ? await api(`${type}/top_rated`, base)
+    : kind === 'now' ? await api(type === 'tv' ? 'tv/on_the_air' : 'movie/now_playing', { ...base, region: L.region })
+    : await api(`discover/${type}`, { ...base, with_genres: extra, sort_by: 'popularity.desc', 'vote_count.gte': 100 });
+  return { items: d.results.map(r => norm(r, type)).filter(n => n.poster), total: d.total_pages || 1 };
+}
+async function rowData(key) { if (!rowCache[key]) rowCache[key] = (await rowPage(key)).items; return rowCache[key]; }
+async function rowTitle(key) {
+  const [kind, type, extra] = key.split(':'); const tv = type === 'tv';
+  if (kind === 'g') { const g = (await genres(type)).find(x => x.id === +extra); return (g ? g.name : 'Género') + (tv ? ' · series' : ''); }
+  return { trending: tv ? 'Series en tendencia' : 'Películas en tendencia', popular: tv ? 'Series populares' : 'Películas populares', top: 'Las mejor puntuadas de todos los tiempos', now: tv ? 'En emisión' : 'En cines' }[kind];
+}
+const pcard = n => { const k = kOf(n); REG[k] = Object.assign(REG[k] || {}, n); const w = D.watched[k];
+  return `<article class="card pc${w ? ' seen' : ''}" data-k="${k}"><button class="poster" data-open="${k}" aria-label="${esc(n.title)}"><img loading="lazy" src="${img(n.poster, 'w342')}" alt=""></button>${D.want[k] && !w ? `<span class="wantmark">${icon(T().want, 14)}</span>` : ''}<button class="tick" data-tick="${k}" aria-pressed="${!!w}" aria-label="${w ? 'Vista' : 'Marcar como vista'}">${icon(T().mark, 16)}</button></article>`; };
+async function renderHome() {
+  const t = HOME.type, p = D.profile;
+  const gl = await genres(t), ids = new Set(gl.map(g => g.id));
+  const fav = ((p && p.fav_genres) || []).map(g => t === 'tv' ? ({ 28: 10759, 12: 10759, 878: 10765, 14: 10765 }[g] || g) : g).filter(g => ids.has(g));
+  const gRows = [...new Set([...fav, ...DEF_G[t]])].slice(0, 7);
+  const rows = [['trending', 'top10'], ['saga'], ['popular'], ['now'], ...gRows.slice(0, 3).map(g => ['g', g]), ['top'], ...gRows.slice(3).map(g => ['g', g])];
+  if (view !== 'explorar') return;
+  app.innerHTML = `${CLOUD && !user ? `<div class="banner"><span><b>Creá tu personaje</b> para guardar lo que viste, puntuar y armar listas en pareja.</span><a class="btn small" href="#yo">Crear cuenta</a></div>` : ''}
+  <div class="pills" id="pills"><button data-ht="movie" aria-pressed="${t === 'movie'}">Películas</button><button data-ht="tv" aria-pressed="${t === 'tv'}">Series</button><button id="catbtn" aria-expanded="${HOME.cats}">Categorías <span aria-hidden="true">▾</span></button></div>
+  <div class="catpanel" id="catpanel" ${HOME.cats ? '' : 'hidden'}>${gl.map(g => `<a href="#lista-g:${t}:${g.id}">${esc(g.name)}</a>`).join('')}</div>
+  <section class="nhero" id="nhero" aria-roledescription="carrusel" aria-label="Destacados"><div class="nh-track" id="nhtrack"><div class="nh-slide skel"></div></div><div class="hc-dots" id="nhdots"></div>
+   <button class="hc-nav prev" id="nhprev" aria-label="Anterior">‹</button><button class="hc-nav next" id="nhnext" aria-label="Siguiente">›</button></section>
+  <div id="rows">${rows.map(([kind, x]) => kind === 'saga' ? '<section class="nrow" id="sagarow" hidden></section>' : `<section class="nrow${x === 'top10' ? ' top10' : ''}" data-row="${kind}:${t}${kind === 'g' ? ':' + x : ''}"><a class="rowhead" href="#lista-${kind}:${t}${kind === 'g' ? ':' + x : ''}"><h3>&nbsp;</h3><span>Ver todo ›</span></a><div class="hrow">${'<div class="pc skel"></div>'.repeat(5)}</div></section>`).join('')}</div>`;
+  $('#pills').onclick = e => { const b = e.target.closest('button'); if (!b) return; if (b.id === 'catbtn') { HOME.cats = !HOME.cats; $('#catpanel').hidden = !HOME.cats; b.setAttribute('aria-expanded', HOME.cats); return; } if (b.dataset.ht !== HOME.type) { HOME.type = b.dataset.ht; HOME.cats = false; heroSet = null; renderHome(); } };
+  homeHero(t);
+  const io = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) { io.unobserve(en.target); fillRow(en.target); } }), { rootMargin: '400px 0px' });
+  document.querySelectorAll('.nrow[data-row]').forEach(r => io.observe(r));
+  sagaRow();
+}
+async function fillRow(sec) {
+  const key = sec.dataset.row, top10 = sec.classList.contains('top10');
+  try {
+    const [title, items] = await Promise.all([rowTitle(key), rowData(key)]);
+    sec.querySelector('h3').textContent = top10 ? (HOME.type === 'tv' ? 'Top 10 series de la semana' : 'Top 10 películas de la semana') : title;
+    sec.querySelector('.hrow').innerHTML = top10 ? items.slice(0, 10).map((n, i) => `<div class="t10"><span class="num" aria-hidden="true">${i + 1}</span>${pcard(n)}</div>`).join('') : items.map(pcard).join('');
+  } catch (e) { sec.remove(); }
+}
+async function sagaRow() {
+  const sec = $('#sagarow'); if (!sec) return;
+  await resolveAllSagas();
+  const next = [];
+  for (const s of SAGAS) { const l = sagaList(s, L.order[s.id] || 'crono', L.series[s.id] !== false); if (!l.some(isW)) continue; const x = l.find(x => x.n && !isW(x)); if (x && x.n.poster) next.push(x.n); }
+  if (!next.length || !document.body.contains(sec)) return;
+  sec.hidden = false;
+  sec.innerHTML = `<a class="rowhead" href="#sagas"><h3>Seguí tus sagas</h3><span>Ver sagas ›</span></a><div class="hrow">${next.map(pcard).join('')}</div>`;
+}
+let heroSet = null, heroTimer = null;
+async function homeHero(t) {
+  const tr = $('#nhtrack'); if (!tr) return;
+  if (!heroSet || heroSet.t !== t) { try { heroSet = { t, items: (await rowData(`trending:${t}`)).filter(n => n.bd).slice(0, 6) }; } catch (e) { heroSet = { t, items: [] }; } }
+  const items = heroSet.items; if (!document.body.contains(tr)) return;
+  if (!items.length) { $('#nhero').remove(); return; }
+  const gl = [...await genres('movie'), ...await genres('tv')];
+  const tags = n => [n.type === 'tv' ? 'Serie' : 'Película', ...(n.g || []).slice(0, 2).map(id => (gl.find(g => g.id === id) || {}).name).filter(Boolean)];
+  tr.innerHTML = items.map((n, i) => { const k = kOf(n); return `<article class="nh-slide" style="--po:url('${img(n.poster, 'w780')}');--bd:url('${img(n.bd, 'w1280')}')" aria-label="${i + 1} de ${items.length}">
+    <div class="nh-info"><span class="hc-tag">#${i + 1} en tendencias</span><h3>${esc(n.title)}</h3><p class="nh-tags">${tags(n).map(esc).join('<i>•</i>')}</p>${n.ov ? `<p class="hc-ov">${esc(n.ov)}</p>` : ''}
+    <div class="nh-btns"><button class="nbtn white" data-open="${k}">${icon({ d: 'M8 5.5v13l10.5-6.5z', fill: 1 }, 22)}Ver ficha</button><button class="nbtn gray" data-want="${k}" data-hw="${k}"></button></div></div></article>`; }).join('');
+  updateHeroBtns();
+  $('#nhdots').innerHTML = items.map((_, i) => `<button aria-label="Ir a ${i + 1}" data-hc="${i}"></button>`).join('');
   let cur = 0;
-  const go2 = i => { cur = (i + heroItems.length) % heroItems.length; tr.scrollTo({ left: cur * tr.clientWidth, behavior: 'smooth' }); };
-  const mark = () => $('#hcdots')?.querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-current', i === cur));
+  const go2 = i => { cur = (i + items.length) % items.length; tr.scrollTo({ left: cur * tr.clientWidth, behavior: 'smooth' }); };
+  const mark = () => $('#nhdots')?.querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-current', i === cur));
   tr.onscroll = () => { const i = Math.round(tr.scrollLeft / tr.clientWidth); if (i !== cur) { cur = i; mark(); } };
-  $('#hcdots').onclick = e => { const b = e.target.closest('[data-hc]'); if (b) { go2(+b.dataset.hc); restart(); } };
-  $('#hcprev').onclick = () => { go2(cur - 1); restart(); }; $('#hcnext').onclick = () => { go2(cur + 1); restart(); };
+  $('#nhdots').onclick = e => { const b = e.target.closest('[data-hc]'); if (b) { go2(+b.dataset.hc); restart(); } };
+  $('#nhprev').onclick = () => { go2(cur - 1); restart(); }; $('#nhnext').onclick = () => { go2(cur + 1); restart(); };
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const restart = () => { clearInterval(heroTimer); if (!reduce) heroTimer = setInterval(() => { if (!document.body.contains(tr)) return clearInterval(heroTimer); if (!document.hidden && !$('#hcar')?.matches(':hover')) go2(cur + 1); }, 5500); };
+  const restart = () => { clearInterval(heroTimer); if (!reduce) heroTimer = setInterval(() => { if (!document.body.contains(tr)) return clearInterval(heroTimer); if (!document.hidden && !$('#nhero')?.matches(':hover')) go2(cur + 1); }, 6000); };
   tr.addEventListener('touchstart', restart, { passive: true });
   mark(); restart();
+}
+function updateHeroBtns() {
+  document.querySelectorAll('[data-hw]').forEach(b => { const k = b.dataset.hw, on = !!D.want[k] || !!D.watched[k];
+    b.innerHTML = D.watched[k] ? `${icon(T().mark, 20)}Ya la viste` : on ? `${icon(T().mark, 20)}En mi lista` : `${icon({ d: 'M12 5v14M5 12h14' }, 22)}Mi lista`;
+    if (D.watched[k]) b.disabled = true; });
+}
+/* Ver todo: grilla de una fila o categoría */
+const lst = { key: null, items: [], page: 0, total: 1, loading: false };
+async function renderList() {
+  const key = String(arg || ''); if (!/^(trending|popular|top|now|g):(movie|tv)(:\d+)?$/.test(key)) return go('explorar');
+  if (lst.key !== key) Object.assign(lst, { key, items: [], page: 0, total: 1 });
+  const title = await rowTitle(key);
+  if (view !== 'lista' || arg !== key) return;
+  app.innerHTML = `<a class="back" href="#explorar">← Inicio</a><h2 class="sec">${esc(title)}</h2><div id="lsres"></div>`;
+  const draw = () => { const box = $('#lsres'); if (!box) return; box.innerHTML = (lst.items.length ? `<div class="grid">${lst.items.map(n => card(n)).join('')}</div>` : '') + (lst.loading ? spinner() : lst.page < lst.total ? '<button class="btn ghost more" id="lsmore">Cargar más</button>' : ''); const m = $('#lsmore'); if (m) m.onclick = more; };
+  const more = async () => { lst.loading = true; draw(); try { const r = await rowPage(key, lst.page + 1); const seen = new Set(lst.items.map(kOf)); lst.items.push(...r.items.filter(n => !seen.has(kOf(n)))); lst.page++; lst.total = r.total; } catch (e) { toast(e.message); } lst.loading = false; if (view === 'lista' && arg === key) draw(); };
+  if (!lst.items.length) more(); else draw();
 }
 async function renderChips() {
   document.querySelectorAll('#tseg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === ex.type));
