@@ -1,7 +1,7 @@
 import { THEMES, icon } from './themes.js';
 import { AVATARS, avatarSVG, SKINS, COLORS } from './avatars.js';
 import { SAGAS } from './sagas.js';
-import { TRAITS, TRAIT_NAMES, CHARS, DUOS, PQ, STESTS } from './tests.js';
+import { TRAITS, TRAIT_NAMES, CHARS, PQ } from './tests.js';
 
 /* =========================================================================
    MODO: "nube" (Supabase: cuentas + servidor TMDB) o "personal" (clave propia)
@@ -292,7 +292,7 @@ function renderBadge() {
   document.querySelectorAll('.badge').forEach(b => { b.hidden = !n; b.textContent = n; });
 }
 function markNav() {
-  const v = { actor: 'explorar', actores: 'explorar', personajes: 'explorar', editar: 'yo', resumen: 'yo', ruleta: arg ? 'juntos' : 'parati', trivia: arg ? 'juntos' : 'parati', tests: 'parati', test: String(arg || '').startsWith('duo-') ? 'juntos' : 'parati', perfil: 'juntos' }[view] || view;
+  const v = { actor: 'explorar', actores: 'explorar', personajes: 'explorar', editar: 'yo', resumen: 'yo', ruleta: arg ? 'juntos' : 'parati', trivia: arg ? 'juntos' : 'parati', tests: 'parati', test: 'parati', perfil: 'juntos' }[view] || view;
   document.querySelectorAll('[data-nav]').forEach(a => a.dataset.nav === v ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
 }
 let view = 'explorar', arg = null;
@@ -709,7 +709,7 @@ let recsCache = null;
 async function renderRecs() {
   const W = Object.values(D.watched), F = Object.values(D.follows), G = (D.profile && D.profile.fav_genres) || [];
   app.innerHTML = `<div class="headrow"><div><h2 class="sec">Para vos</h2><p class="muted">Según lo que viste, cómo lo puntuaste, los actores que seguís y tus géneros favoritos.</p></div>
-  <div class="acts"><a class="btn" href="#ruleta">${icon(DICE, 20)}¿Qué vemos hoy?</a><a class="btn ghost" href="#trivia">${icon(QUIZ, 20)}Trivia</a><a class="btn ghost" href="#tests">${icon(MASK, 20)}Tests</a></div></div><div id="recbody">${spinner()}</div>`;
+  <div class="acts"><a class="btn" href="#ruleta">${icon(DICE, 20)}¿Qué vemos hoy?</a><a class="btn ghost" href="#trivia">${icon(QUIZ, 20)}Trivia</a><a class="btn ghost" href="#tests">${icon(MASK, 20)}¿Qué personaje sos?</a></div></div><div id="recbody">${spinner()}</div>`;
   if (needsAccount() || (!W.length && !F.length && !G.length)) {
     $('#recbody').innerHTML = emptyBox('Marcá lo que ya viste (y puntualo), seguí a algún actor o elegí tus géneros favoritos y acá te armo recomendaciones a tu medida.',
       `<p><a class="btn" href="#explorar">Explorar</a> <a class="btn ghost" href="#actores">Buscar actores</a></p>`);
@@ -810,7 +810,7 @@ async function renderCouple(cid) {
   const vimos = list.filter(([, v]) => v.status === 'watched').sort((a, b) => b[1].at - a[1].at), queremos = list.filter(([, v]) => v.status === 'want').sort((a, b) => b[1].at - a[1].at);
   app.innerHTML = `<a class="back" href="#juntos">← Juntos</a>
   <section class="couple"><span class="pair big">${myAvatar(96)}${pAvatar(c.other, 96)}</span><div><h2 class="sec">Vos y ${esc(pName(c.other))}</h2>
-   <div class="acts"><a class="btn" href="#ruleta-${cid}">${icon(DICE, 20)}¿Qué vemos hoy?</a><a class="btn ghost" href="#trivia-${cid}">${icon(QUIZ, 20)}Duelo de preguntas</a><a class="btn ghost" href="#test-duo-${cid}">${icon(MASK, 20)}¿Qué dupla somos?</a><button class="btn ghost" id="goadd">+ Agregar las que ya vimos</button><a class="btn ghost" href="#u-${esc(c.other.username)}">Ver perfil de ${esc(pName(c.other))}</a></div></div></section>
+   <div class="acts"><a class="btn" href="#ruleta-${cid}">${icon(DICE, 20)}¿Qué vemos hoy?</a><a class="btn ghost" href="#trivia-${cid}">${icon(QUIZ, 20)}Duelo de preguntas</a><button class="btn ghost" id="goadd">+ Agregar las que ya vimos</button><a class="btn ghost" href="#u-${esc(c.other.username)}">Ver perfil de ${esc(pName(c.other))}</a></div></div></section>
   <div class="tools"><div class="seg" id="jt"><button data-v="vimos" aria-pressed="${jtab.tab === 'vimos'}">Vimos juntos (${vimos.length})</button><button data-v="queremos" aria-pressed="${jtab.tab === 'queremos'}">Queremos ver (${queremos.length})</button><button data-v="recs" aria-pressed="${jtab.tab === 'recs'}">Para ver juntos</button><button data-v="agregar" aria-pressed="${jtab.tab === 'agregar'}">+ Agregar vistas antes</button></div></div>
   <div id="jbody"></div>
   <p class="muted" style="margin-top:34px;font-size:14px">Para sumar títulos a esta lista, abrí cualquier peli o serie y tocá “La vimos juntos” o “Queremos verla”. <button class="linkbtn" data-remove="${cid}">Desconectarse</button></p>`;
@@ -1211,32 +1211,39 @@ function endGame() {
 }
 addEventListener('hashchange', () => { if (view !== 'trivia') clearInterval(tqTick); });
 
-/* ===================== Tests de personalidad ===================== */
+/* ===================== Test: ¿qué personaje sos? ===================== */
 const tvec = o => TRAITS.map(k => (o && o[k]) || 0);
 const cosine = (a, b) => { let d = 0, x = 0, y = 0; for (let i = 0; i < a.length; i++) { d += a[i] * b[i]; x += a[i] * a[i]; y += b[i] * b[i]; } return x && y ? d / Math.sqrt(x * y) : 0; };
-const savedTests = p => ((p && p.prefs && p.prefs.tests) || {});
-function badges(p) {
-  const t = savedTests(p); const out = [];
-  if (t.personaje) { const c = CHARS.find(x => x.id === t.personaje); if (c) out.push(`<span class="tbadge">${icon(MASK, 14)} ${esc(c.name)}</span>`); }
-  for (const st of STESTS) if (t[st.id] && st.out[t[st.id]]) { const o = st.out[t[st.id]]; out.push(`<span class="tbadge" style="--b1:${o.c1};--b2:${o.c2}">${esc(o.name)}</span>`); }
-  return out.length ? `<div class="tbadges">${out.join('')}</div>` : '';
+// Personaje elegido por la persona para su perfil (lo elige ella, no el test).
+function profileChar(p) {
+  const pr = (p && p.prefs) || {};
+  if (pr.character === null) return null;
+  if (pr.character && pr.character.name) return pr.character;
+  const old = pr.tests && pr.tests.personaje && CHARS.find(x => x.id === pr.tests.personaje); // perfiles anteriores
+  return old ? { id: old.id, name: old.name, from: '' } : null;
 }
-async function saveTest(key, val) {
-  const p = D.profile; if (!p) return;
-  const prefs = { ...(p.prefs || {}), tests: { ...savedTests(p), [key]: val } };
+function badges(p) {
+  const c = profileChar(p); if (!c) return '';
+  return `<div class="tbadges"><span class="tbadge">${icon(MASK, 14)} ${esc(c.name)}${c.from ? ` <small>· ${esc(c.from)}</small>` : ''}</span></div>`;
+}
+const charOf = c => { const n = nOf(c); return { id: c.id, name: c.name, from: n ? n.title : c.q[1], poster: n ? n.poster : null }; };
+async function setProfileChar(ch) {
+  const p = D.profile; if (!p) { toast('Primero creá tu perfil'); return go('editar'); }
+  const prefs = { ...(p.prefs || {}), character: ch };
   const data = { username: p.username || 'yo', display_name: p.display_name || p.username || 'Cinéfilo', avatar: p.avatar, color: p.color, theme: p.theme, bio: p.bio || '', fav_genres: p.fav_genres || [], prefs };
   if (CLOUD) data.is_public = !!p.is_public;
-  try { await saveProfile(data); } catch (e) { console.warn(e); }
+  await saveProfile(data);
+  renderShell();
 }
-async function titlesOf(list) { // resuelve las pelis/series de personajes y duplas (con caché compartida con las sagas)
+async function titlesOf(list) { // resuelve las pelis/series de los personajes (caché compartida con las sagas)
   const todo = list.filter(c => !L.cache[ckey(c.q)]);
   for (let i = 0; i < todo.length; i += 6) await Promise.all(todo.slice(i, i + 6).map(c => resolveItem(c.q)));
   if (todo.length) saveL();
 }
 const nOf = c => L.cache[ckey(c.q)];
-function tasteGenres(extraWatched = []) {
+function tasteGenres() {
   const g = new Set((D.profile && D.profile.fav_genres) || []);
-  for (const w of [...Object.values(D.watched), ...extraWatched]) for (const x of (w.g || [])) g.add(x);
+  for (const w of Object.values(D.watched)) for (const x of (w.g || [])) g.add(x);
   return g;
 }
 function rankTargets(list, vec, seen, genresSet) {
@@ -1246,114 +1253,62 @@ function rankTargets(list, vec, seen, genresSet) {
     return { c, n, watched, score: cosine(vec, tvec(c.t)) + (watched ? 0.22 : 0) + Math.min(gm, 2) * 0.04 };
   }).sort((a, b) => b.score - a.score);
 }
-async function sagaUnlocked(st) {
-  if (st.unlock.tv) return !!D.watched['tv:' + st.unlock.tv];
-  const s = SAGAS.find(x => x.id === st.unlock.saga); if (!s) return false;
-  await resolveSaga(s); return sagaList(s, 'crono', true).some(isW);
-}
-async function renderTests() {
-  app.innerHTML = spinner('Preparando los tests…');
-  const unl = {}; for (const st of STESTS) unl[st.id] = await sagaUnlocked(st);
-  if (view !== 'tests') return;
-  const t = savedTests(D.profile), acc = CLOUD && user ? accepted() : [];
-  const me = t.personaje && CHARS.find(c => c.id === t.personaje);
-  app.innerHTML = `<a class="back" href="#parati">← Para vos</a><h2 class="sec">Tests</h2><p class="muted">Descubrí con quién te parecés. Los resultados se guardan en tu perfil para que los vean tus amigos.</p>
-  <div class="tgrid">
-   <a class="tcard main" href="#test-personaje"><span class="tico">${icon(MASK, 34)}</span><div><b>¿Qué personaje sos?</b><small>${me ? `Te salió <strong>${esc(me.name)}</strong>. ¿Volvés a probar?` : '10 preguntas. Elige entre personajes de lo que viste y de tus géneros favoritos.'}</small></div></a>
-   ${STESTS.map(st => { const r = t[st.id] && st.out[t[st.id]]; const first = Object.values(st.out)[0], last = Object.values(st.out).slice(-1)[0];
-     return unl[st.id] ? `<a class="tcard" href="#test-${st.id}" style="--b1:${(r || first).c1};--b2:${(r || last).c2}"><span class="tsym">${esc(r ? r.sym : '?')}</span><div><b>${esc(st.name)}</b><small>${r ? `Sos de <strong>${esc(r.name)}</strong>` : `${st.qs.length} preguntas`}</small></div></a>`
-       : `<div class="tcard locked"><span class="tsym">🔒</span><div><b>${esc(st.name)}</b><small>Marcá como vista ${esc(st.lock)} para desbloquearlo.</small></div></div>`; }).join('')}
-  </div>
-  ${acc.length ? `<h3 class="row-t">En pareja</h3><div class="tgrid">${acc.map(c => `<a class="tcard" href="#test-duo-${c.id}"><span class="pair">${myAvatar(40)}${pAvatar(c.other, 40)}</span><div><b>¿Qué dupla son con ${esc(pName(c.other))}?</b><small>Responden los dos en el mismo celu y les digo a qué pareja del cine se parecen.</small></div></a>`).join('')}</div>` : ''}`;
+function renderTests() {
+  const cur = profileChar(D.profile), last = L.lastTest && CHARS.find(c => c.id === L.lastTest);
+  app.innerHTML = `<a class="back" href="#parati">← Para vos</a>
+  <section class="quizhead"><span class="qbig">${icon(MASK, 46)}</span><div><h2 class="sec">¿Qué personaje sos?</h2>
+  <p class="muted">10 preguntas de personalidad. Te digo a qué personaje te parecés, eligiendo primero entre lo que viste y tus géneros favoritos.</p></div></section>
+  <div class="box" style="max-width:620px">
+   ${last ? `<p>La última vez te salió <b>${esc(last.name)}</b>.</p>` : ''}
+   <p>${cur ? `En tu perfil mostrás: <b>${esc(cur.name)}</b>${cur.from ? ` (${esc(cur.from)})` : ''}.` : 'Todavía no elegiste un personaje para tu perfil.'} <a href="#editar" id="pickhand">Elegirlo a mano</a></p>
+   <button class="btn spinbtn" id="tstart">${icon(MASK, 22)}Empezar el test</button></div>`;
+  $('#tstart').onclick = () => { ts.run = null; go('test-personaje'); };
+  $('#pickhand').onclick = () => { editFocus = 'char'; };
 }
 const ts = { run: null };
 const mixQs = qs => qs.map(q => ({ ...q, o: shuffle(q.o) }));
-async function renderTest() {
-  const id = String(arg || '');
-  if (ts.run && ts.run.id === id && !ts.run.done) return drawTestQ();
-  if (id === 'personaje') { ts.run = { id, kind: 'pers', qs: mixQs(PQ), players: [{ name: pName(D.profile), ans: [] }], i: 0, p: 0 }; return drawTestQ(); }
-  if (id.startsWith('duo-')) {
-    const cid = id.slice(4); if (!D.conns.length) await loadConns();
-    const c = D.conns.find(x => x.id === cid && x.status === 'accepted'); if (!c) return go('juntos');
-    ts.run = { id, kind: 'duo', cid, c, qs: mixQs(PQ), players: [{ name: pName(D.profile), ans: [] }, { name: pName(c.other), ans: [] }], i: 0, p: 0, waiting: true }; return drawTestQ();
-  }
-  const st = STESTS.find(x => x.id === id); if (!st) return go('tests');
-  if (!(await sagaUnlocked(st))) { toast('Primero marcá como vista ' + st.lock); return go('tests'); }
-  ts.run = { id, kind: 'saga', st, qs: mixQs(st.qs), players: [{ name: pName(D.profile), ans: [] }], i: 0, p: 0 }; drawTestQ();
+function renderTest() {
+  if (String(arg || '') !== 'personaje') return go('tests');
+  if (!ts.run || ts.run.done) ts.run = { qs: mixQs(PQ), ans: [], i: 0 };
+  drawTestQ();
 }
 function drawTestQ() {
-  const r = ts.run, P = r.players[r.p];
-  if (r.waiting) {
-    app.innerHTML = `<section class="turn"><p class="muted">¿Qué dupla son?</p><h2 class="sec">Turno de ${esc(P.name)}</h2><p>${r.p === 0 ? 'Respondé vos primero. Después le pasás el celu.' : 'Pasale el celu 📱 y que no espíe nadie.'}</p><button class="btn spinbtn" id="tgo">Empezar</button></section>`;
-    $('#tgo').onclick = () => { r.waiting = false; drawTestQ(); }; return;
-  }
-  const q = r.qs[r.i], title = r.kind === 'saga' ? r.st.name : r.kind === 'duo' ? `¿Qué dupla son? · ${P.name}` : '¿Qué personaje sos?';
-  const st = r.kind === 'saga' ? r.st : null, o1 = st && Object.values(st.out)[0], o2 = st && Object.values(st.out).slice(-1)[0];
-  app.innerHTML = `<section class="tq"${st ? ` style="--b1:${o1.c1};--b2:${o2.c2}"` : ''}>
-   <div class="qtop"><a class="back" href="#tests" style="padding:0;min-height:0">✕</a><span class="muted">${esc(title)}</span><span class="qscore">${r.i + 1} / ${r.qs.length}</span></div>
-   <div class="qtime"><i style="width:${(r.i) / r.qs.length * 100}%"></i></div>
+  const r = ts.run, q = r.qs[r.i];
+  app.innerHTML = `<section class="tq">
+   <div class="qtop"><a class="back" href="#tests" style="padding:0;min-height:0">✕</a><span class="muted">¿Qué personaje sos?</span><span class="qscore">${r.i + 1} / ${r.qs.length}</span></div>
+   <div class="qtime"><i style="width:${r.i / r.qs.length * 100}%"></i></div>
    <h3 class="qq">${esc(q.q)}</h3>
    <div class="topts">${q.o.map((o, i) => `<button data-ti="${i}">${esc(o[0])}</button>`).join('')}</div>
    ${r.i > 0 ? '<button class="linkbtn" id="tback" style="margin-top:18px">← Volver a la anterior</button>' : ''}</section>`;
-  app.querySelector('.topts').onclick = e => { const b = e.target.closest('[data-ti]'); if (!b) return; P.ans[r.i] = +b.dataset.ti; nextTestQ(); };
+  app.querySelector('.topts').onclick = e => { const b = e.target.closest('[data-ti]'); if (!b) return; r.ans[r.i] = +b.dataset.ti; if (r.i + 1 < r.qs.length) { r.i++; drawTestQ(); } else { r.done = true; showTestResult(); } };
   if ($('#tback')) $('#tback').onclick = () => { r.i--; drawTestQ(); };
-}
-function nextTestQ() {
-  const r = ts.run;
-  if (r.i + 1 < r.qs.length) { r.i++; return drawTestQ(); }
-  if (r.p + 1 < r.players.length) { r.p++; r.i = 0; r.waiting = true; return drawTestQ(); }
-  r.done = true; showTestResult();
 }
 const sumPts = (qs, ans) => { const t = {}; ans.forEach((a, i) => { const pts = qs[i].o[a][1]; for (const k in pts) t[k] = (t[k] || 0) + pts[k]; }); return t; };
 async function showTestResult() {
   const r = ts.run;
   app.innerHTML = spinner('Calculando…');
-  if (r.kind === 'saga') {
-    const tot = sumPts(r.qs, r.players[0].ans), keys = Object.keys(r.st.out), sum = keys.reduce((s, k) => s + (tot[k] || 0), 0) || 1;
-    const win = keys.slice().sort((a, b) => (tot[b] || 0) - (tot[a] || 0))[0], o = r.st.out[win];
-    await saveTest(r.st.id, win);
-    app.innerHTML = `<section class="tres" style="--b1:${o.c1};--b2:${o.c2}"><span class="tsym big">${esc(o.sym)}</span><p>${esc(r.st.short)}</p><h2 class="sec">${esc(o.name)}</h2><p class="td">${esc(o.d)}</p></section>
-     <section class="box"><h3>Tu porcentaje</h3>${keys.map(k => `<div class="hbar"><span>${esc(r.st.out[k].name)}</span><i style="width:${(tot[k] || 0) / sum * 100}%;background:${r.st.out[k].c1}"></i><b>${Math.round((tot[k] || 0) / sum * 100)}%</b></div>`).join('')}</section>
-     ${resultActions(`En MiCine me salió ${o.name} (${r.st.short}). ¿Y a vos? 🎬`)}`;
-    return bindResult();
-  }
-  const pool = r.kind === 'duo' ? null : CHARS;
-  await titlesOf([...CHARS, ...DUOS]);
-  if (r.kind === 'pers') {
-    const v = tvec(sumPts(r.qs, r.players[0].ans));
-    const ranked = rankTargets(pool, v, new Set(Object.keys(D.watched)), tasteGenres());
-    const top = ranked[0], also = ranked.slice(1, 4);
-    await saveTest('personaje', top.c.id);
-    const myTop = TRAITS.map((k, i) => [k, v[i]]).sort((a, b) => b[1] - a[1]).slice(0, 3);
-    app.innerHTML = `<section class="tres char">${top.n && top.n.poster ? `<img class="tpost" src="${img(top.n.poster, 'w342')}" alt="">` : `<span class="tsym big">${icon(MASK, 40)}</span>`}
-      <div><p>Sos…</p><h2 class="sec">${esc(top.c.name)}</h2><p class="from">de ${esc(top.n ? top.n.title : top.c.q[1])}${top.watched ? ' · la viste' : ''}</p><p class="td">${esc(top.c.d)}</p>
-      <div class="chips" style="flex-wrap:wrap;margin:0;padding:0">${myTop.map(([k]) => `<span class="tchip">${TRAIT_NAMES[k]}</span>`).join('')}</div></div></section>
-      <h3 class="row-t">También te parecés a…</h3><div class="alsos">${also.map(x => `<div class="also">${x.n && x.n.poster ? `<img src="${img(x.n.poster, 'w154')}" alt="">` : ''}<div><b>${esc(x.c.name)}</b><small>${esc(x.n ? x.n.title : x.c.q[1])}</small></div></div>`).join('')}</div>
-      ${resultActions(`Hice el test de MiCine y me salió que soy ${top.c.name}. ¿A quién te parecés vos? 🎬`)}`;
-    return bindResult();
-  }
-  // Dupla
-  const [a, b] = r.players.map(P => tvec(sumPts(r.qs, P.ans)));
-  const pl = await partnerLib(r.c.otherId);
-  const seen = new Set([...Object.keys(D.watched), ...Object.keys(pl.watched), ...Object.entries(D.cpl[r.cid] || {}).filter(([, v]) => v.status === 'watched').map(([k]) => k)]);
-  const gs = tasteGenres(Object.values(pl.watched)); (r.c.other.fav_genres || []).forEach(x => gs.add(x));
-  const duo = rankTargets(DUOS, a.map((x, i) => x + b[i]), seen, gs)[0];
-  const ca = rankTargets(CHARS, a, seen, gs)[0], cb = rankTargets(CHARS, b, seen, gs).find(x => x.c.id !== ca.c.id);
-  const match = Math.round((cosine(a, b) * 0.7 + 0.3) * 100);
-  await saveTest('personaje', ca.c.id);
-  app.innerHTML = `<section class="tres char">${duo.n && duo.n.poster ? `<img class="tpost" src="${img(duo.n.poster, 'w342')}" alt="">` : ''}
-    <div><p>Juntos son como…</p><h2 class="sec">${esc(duo.c.names)}</h2><p class="from">de ${esc(duo.n ? duo.n.title : duo.c.q[1])}${duo.watched ? ' · la vieron' : ''}</p><p class="td">${esc(duo.c.d)}</p>
-    <p class="match">Compatibilidad: <b>${match}%</b></p></div></section>
-    <div class="alsos two">${[[r.players[0].name, ca], [r.players[1].name, cb]].map(([nm, x]) => `<div class="also">${x.n && x.n.poster ? `<img src="${img(x.n.poster, 'w154')}" alt="">` : ''}<div><small>${esc(nm)} es</small><b>${esc(x.c.name)}</b><small>${esc(x.n ? x.n.title : x.c.q[1])}</small></div></div>`).join('')}</div>
-    ${resultActions(`En MiCine nos salió que somos como ${duo.c.names} (${match}% de compatibilidad) 💕🎬`)}`;
-  bindResult();
+  await titlesOf(CHARS);
+  const v = tvec(sumPts(r.qs, r.ans));
+  const ranked = rankTargets(CHARS, v, new Set(Object.keys(D.watched)), tasteGenres());
+  const top = ranked[0], also = ranked.slice(1, 4);
+  L.lastTest = top.c.id; saveL();
+  const myTop = TRAITS.map((k, i) => [k, v[i]]).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const cur = profileChar(D.profile);
+  const useBtn = (x, cls = 'ghost small') => cur && cur.name === x.c.name ? `<span class="muted" style="font-size:13px">✓ En tu perfil</span>` : `<button class="btn ${cls}" data-usechar="${x.c.id}">${cls.includes('small') ? 'Usar' : 'Poner en mi perfil'}</button>`;
+  const share = `Hice el test de MiCine y me salió que soy ${top.c.name}. ¿A quién te parecés vos? 🎬`;
+  app.innerHTML = `<section class="tres char">${top.n && top.n.poster ? `<img class="tpost" src="${img(top.n.poster, 'w342')}" alt="">` : `<span class="tsym big">${icon(MASK, 40)}</span>`}
+    <div><p>Sos…</p><h2 class="sec">${esc(top.c.name)}</h2><p class="from">de ${esc(top.n ? top.n.title : top.c.q[1])}${top.watched ? ' · la viste' : ''}</p><p class="td">${esc(top.c.d)}</p>
+    <div class="chips" style="flex-wrap:wrap;margin:0 0 14px;padding:0">${myTop.map(([k]) => `<span class="tchip">${TRAIT_NAMES[k]}</span>`).join('')}</div>
+    ${D.profile ? useBtn(top, '') : ''}</div></section>
+    <h3 class="row-t">También te parecés a…</h3><div class="alsos">${also.map(x => `<div class="also">${x.n && x.n.poster ? `<img src="${img(x.n.poster, 'w154')}" alt="">` : ''}<div style="flex:1"><b>${esc(x.c.name)}</b><small>${esc(x.n ? x.n.title : x.c.q[1])}</small></div>${D.profile ? useBtn(x) : ''}</div>`).join('')}</div>
+    <div class="acts" style="justify-content:center;margin-top:22px"><button class="btn ghost" id="tagain">Hacerlo de nuevo</button><button class="btn ghost" id="tshare">Compartir</button></div>
+    <p class="muted" style="text-align:center;font-size:13px">El personaje de tu perfil lo elegís vos: podés usar este, otro de la lista o cualquiera desde <a href="#editar" id="pickhand2">Editar perfil</a>.</p>`;
+  app.querySelectorAll('[data-usechar]').forEach(b => b.onclick = async () => { const c = CHARS.find(x => x.id === b.dataset.usechar); b.disabled = true; await setProfileChar(charOf(c)); toast(`${c.name} ahora está en tu perfil`); showTestResult(); });
+  $('#tagain').onclick = () => { ts.run = null; renderTest(); };
+  $('#pickhand2').onclick = () => { editFocus = 'char'; };
+  $('#tshare').onclick = async () => { const data = { title: 'MiCine', text: share, url: location.origin + location.pathname }; if (navigator.share) { try { await navigator.share(data); return; } catch (e) { if (e.name === 'AbortError') return; } } copyText(share + ' ' + data.url, 'Copiado para compartir'); };
 }
-const resultActions = share => `<div class="acts" style="justify-content:center;margin-top:22px"><button class="btn" id="tagain">Hacerlo de nuevo</button><button class="btn ghost" id="tshare" data-share="${esc(share)}">Compartir</button><a class="btn ghost" href="#tests">Otros tests</a></div><p class="muted" style="text-align:center;font-size:13px">Tu resultado quedó guardado en tu perfil.</p>`;
-function bindResult() {
-  $('#tagain').onclick = () => { const id = ts.run.id; ts.run = null; arg = id; renderTest(); };
-  $('#tshare').onclick = async () => { const text = $('#tshare').dataset.share, data = { title: 'MiCine', text, url: location.origin + location.pathname }; if (navigator.share) { try { await navigator.share(data); return; } catch (e) { if (e.name === 'AbortError') return; } } copyText(text + ' ' + data.url, 'Copiado para compartir'); };
-  renderShell();
-}
+let editFocus = null;
 
 /* ===================== Resumen del mes / año ===================== */
 const sm = { period: 'month' };
@@ -1454,9 +1409,9 @@ function renderMe() {
   <section class="profile">${myAvatar(140)}<div>
    <h2>${esc(pName(p))}</h2>${p.username ? `<div class="handle">@${esc(p.username)}${CLOUD ? ` · ${p.is_public ? 'Perfil público' : 'Perfil privado'}` : ''}</div>` : ''}
    ${p.bio ? `<p style="margin:8px 0 0">${esc(p.bio)}</p>` : ''}
-   ${badges(p) || `<a class="badgelink" href="#tests">${icon(MASK, 16)} Descubrí qué personaje sos</a>`}
+   ${badges(p) || `<a class="badgelink" href="#editar" data-editchar>${icon(MASK, 16)} Elegí el personaje que te representa</a>`}
    <div class="stats"><div class="stat"><b>${nm}</b><span>películas</span></div><div class="stat"><b>${W.length - nm}</b><span>series</span></div><div class="stat"><b>${A.length}</b><span>quiero ver</span></div><div class="stat"><b>${F.length}</b><span>actores</span></div></div>
-   <div class="acts"><a class="btn small" href="#resumen">Mi resumen</a><a class="btn ghost small" href="#trivia">Trivia</a><a class="btn ghost small" href="#tests">Tests</a><a class="btn ghost small" href="#editar">Editar personaje y estilo</a>${CLOUD ? `<button class="btn ghost small" id="cpl">Copiar link de mi perfil</button><button class="btn ghost small" id="logout">Cerrar sesión</button>` : ''}</div></div></section>
+   <div class="acts"><a class="btn small" href="#resumen">Mi resumen</a><a class="btn ghost small" href="#trivia">Trivia</a><a class="btn ghost small" href="#tests">¿Qué personaje sos?</a><a class="btn ghost small" href="#editar">Editar personaje y estilo</a>${CLOUD ? `<button class="btn ghost small" id="cpl">Copiar link de mi perfil</button><button class="btn ghost small" id="logout">Cerrar sesión</button>` : ''}</div></div></section>
   <div class="tools" style="margin-top:22px"><div class="seg" id="mtab"><button data-v="vistas" aria-pressed="${mine.tab === 'vistas'}">Vistas (${W.length})</button><button data-v="quiero" aria-pressed="${mine.tab === 'quiero'}">Quiero ver (${A.length})</button><button data-v="actores" aria-pressed="${mine.tab === 'actores'}">Actores (${F.length})</button></div></div>
   ${body}
   ${CLOUD ? `<section class="box" style="margin-top:34px"><h3>🔔 Notificaciones</h3><div id="pushbox"><p class="muted">Cargando…</p></div></section>` : ''}
@@ -1557,7 +1512,7 @@ async function renderEditor() {
     app.innerHTML = `<div class="editor">
     <div><h2 class="sec">${first ? 'Creá tu personaje' : 'Tu personaje'}</h2><p class="muted">${first ? 'Así te van a ver en MiCine. Lo podés cambiar cuando quieras.' : 'Cambiá tu avatar, tus datos y el estilo de la app.'}</p></div>
     <section class="box"><div class="preview">${avatarSVG(p.avatar, p.color, p.prefs.skin, 84)}<div><b style="font-size:20px">${esc(p.display_name || 'Tu nombre')}</b><div class="muted">@${esc(p.username || 'usuario')}</div></div></div>
-     <h3 style="margin-top:18px">Elegí tu personaje</h3><div class="avpick" id="avp">${AVATARS.map(a => `<button type="button" data-av="${a.id}" aria-pressed="${p.avatar === a.id}">${avatarSVG(a.id, p.color, p.prefs.skin, 58)}${esc(a.name)}</button>`).join('')}</div>
+     <h3 style="margin-top:18px">Elegí tu avatar</h3><div class="avpick" id="avp">${AVATARS.map(a => `<button type="button" data-av="${a.id}" aria-pressed="${p.avatar === a.id}">${avatarSVG(a.id, p.color, p.prefs.skin, 58)}${esc(a.name)}</button>`).join('')}</div>
      <h3 style="margin-top:18px">Color de fondo</h3><div class="swatches" id="colp">${COLORS.map(c => `<button type="button" data-c="${c}" style="background:${c}" aria-label="Color ${c}" aria-pressed="${p.color === c}"></button>`).join('')}</div>
      <h3 style="margin-top:18px">Tono de piel</h3><div class="swatches" id="skp">${SKINS.map(c => `<button type="button" data-s="${c}" style="background:${c}" aria-label="Tono ${c}" aria-pressed="${p.prefs.skin === c}"></button>`).join('')}</div></section>
     <section class="box"><h3>Tus datos</h3>
@@ -1566,10 +1521,28 @@ async function renderEditor() {
      <label class="field"><span>Bio</span><textarea id="fb" maxlength="200" placeholder="Fan de las sagas largas y los finales que no se ven venir.">${esc(p.bio)}</textarea></label>
      ${CLOUD ? `<label class="chk big"><input type="checkbox" id="fpub" ${p.is_public ? 'checked' : ''}> <span><b>Perfil público</b><br>Cualquiera con tu link ve lo que viste y tus puntajes. Si lo dejás privado, solo lo ven las personas con las que te conectes.</span></label>` : ''}
      <h3 style="margin-top:14px">Géneros favoritos</h3><div class="chips" id="gp" style="flex-wrap:wrap">${gl.map(g => `<button type="button" data-g="${g.id}" aria-pressed="${p.fav_genres.includes(g.id)}">${esc(g.name)}</button>`).join('')}</div></section>
+    <section class="box" id="charsec"><h3>Personaje que te representa</h3><p class="muted" style="margin-top:-4px">Aparece en tu perfil. Elegí el que quieras: no tiene que ser el que te salió en el <a href="#tests">test</a>.</p>
+     <div class="charnow" id="charnow"></div>
+     <div class="search" style="margin:12px 0">${icon(SEARCH, 20)}<input id="chs" type="search" placeholder="Buscar: Gandalf, Hermione, Jack Sparrow…" value="${esc(chq)}" aria-label="Buscar personaje"></div>
+     <div class="charpick" id="chp"></div>
+     <details class="chother" id="chother"><summary>¿No está en la lista? Agregá cualquier personaje</summary>
+      <label class="field"><span>Nombre del personaje</span><input id="cn" maxlength="40" placeholder="Ej: Legolas, Walter White, Mafalda…"></label>
+      <label class="field"><span>¿De qué peli o serie?</span><input id="ct" type="search" maxlength="60" placeholder="Escribí y elegí de la lista"></label>
+      <div id="ctres" class="ctres"></div></details></section>
     <section class="box"><h3>Estilo de la app</h3><p class="muted" style="margin-top:-4px">Cambia colores, tipografía, íconos y fondo. Tocá uno para probarlo.</p>
      <div class="themes" id="thp">${Object.entries(THEMES).map(([id, th]) => `<button type="button" class="themecard" data-th="${id}" aria-pressed="${p.theme === id}" style="background:${th.c.bg} ${th.pattern};background-size:${th.patternSize || 'auto'};color:${th.c.ink}"><div class="tp"><span style="color:${th.c.acc}">${icon(th.mark, 30)}</span><b style="font-family:${esc(th.font)}">${esc(th.name)}</b></div><div class="dots"><i style="background:${th.c.acc}"></i><i style="background:${th.c.acc2}"></i><i style="background:${th.c.panel}"></i></div></button>`).join('')}</div>
      <p class="muted" style="margin-bottom:0">Estilo elegido: <b>${esc(t.name)}</b> · “${esc(t.loading)}”</p></section>
     <div class="stickybar"><span class="err" id="perr" style="margin-right:auto;align-self:center"></span>${first ? '' : '<a class="btn ghost" href="#yo" id="pcancel">Cancelar</a>'}<button class="btn" id="psave">${first ? 'Crear mi personaje' : 'Guardar cambios'}</button></div></div>`;
+    drawCharNow(); drawCharList();
+    $('#chs').oninput = e => { chq = e.target.value; drawCharList(); };
+    $('#chp').onclick = e => { const b = e.target.closest('[data-ch]'); if (!b) return; const c = CHARS.find(x => x.id === b.dataset.ch); p.prefs.character = charOf(c); drawCharNow(); drawCharList(); };
+    let ctT;
+    $('#ct').oninput = e => { clearTimeout(ctT); const q = e.target.value.trim(); if (q.length < 2) { $('#ctres').innerHTML = ''; return; } ctT = setTimeout(async () => {
+      try { const d = await api('search/multi', { query: q }); const res = d.results.filter(r => r.media_type === 'movie' || r.media_type === 'tv').slice(0, 6).map(r => norm(r, r.media_type));
+        $('#ctres').innerHTML = res.length ? res.map(n => `<button type="button" data-ct="${kOf(n)}">${n.poster ? `<img src="${img(n.poster, 'w92')}" alt="">` : '<span class="ph"></span>'}<span><b>${esc(n.title)}</b><small>${n.year || ''} · ${n.type === 'tv' ? 'Serie' : 'Película'}</small></span></button>`).join('') : '<p class="muted">No encontré nada.</p>';
+      } catch (er) { $('#ctres').innerHTML = `<p class="err">${esc(er.message)}</p>`; } }, 350); };
+    $('#ctres').onclick = e => { const b = e.target.closest('[data-ct]'); if (!b) return; const name = $('#cn').value.trim(); if (!name) { $('#cn').focus(); toast('Escribí el nombre del personaje'); return; } const n = REG[b.dataset.ct]; p.prefs.character = { name, from: n.title, poster: n.poster || null, k: b.dataset.ct }; $('#cn').value = ''; $('#ct').value = ''; $('#ctres').innerHTML = ''; $('#chother').open = false; drawCharNow(); drawCharList(); toast(name + ' elegido'); };
+    if (editFocus === 'char') { editFocus = null; setTimeout(() => $('#charsec')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80); }
     const keep = () => { p.display_name = $('#fn').value; p.username = $('#fu').value.toLowerCase().replace(/[^a-z0-9_]/g, ''); p.bio = $('#fb').value; if ($('#fpub')) p.is_public = $('#fpub').checked; };
     $('#avp').onclick = e => { const b = e.target.closest('[data-av]'); if (b) { keep(); p.avatar = b.dataset.av; draw(); } };
     $('#colp').onclick = e => { const b = e.target.closest('[data-c]'); if (b) { keep(); p.color = b.dataset.c; draw(); } };
@@ -1590,8 +1563,21 @@ async function renderEditor() {
       } catch (er) { $('#perr').textContent = er.message; $('#psave').disabled = false; }
     };
   };
+  const drawCharNow = () => {
+    const box = $('#charnow'); if (!box) return; const ch = profileChar({ prefs: p.prefs });
+    box.innerHTML = ch ? `${ch.poster ? `<img src="${img(ch.poster, 'w154')}" alt="">` : `<span class="ph">${icon(MASK, 26)}</span>`}<div><small>En tu perfil</small><b>${esc(ch.name)}</b>${ch.from ? `<small>${esc(ch.from)}</small>` : ''}</div><button type="button" class="linkbtn" id="chclr">Quitar</button>`
+      : `<span class="ph">${icon(MASK, 26)}</span><div><b>Ninguno elegido</b><small>Tocá uno de la lista o hacé el test.</small></div>`;
+    const cl = $('#chclr'); if (cl) cl.onclick = () => { p.prefs.character = null; drawCharNow(); drawCharList(); };
+  };
+  const drawCharList = () => {
+    const box = $('#chp'); if (!box) return; const cur = profileChar({ prefs: p.prefs }); const q = fold(chq);
+    const list = CHARS.filter(c => { const n = nOf(c); return !q || fold(c.name + ' ' + (n ? n.title : c.q[1])).includes(q); });
+    box.innerHTML = list.length ? list.map(c => { const n = nOf(c); return `<button type="button" data-ch="${c.id}" aria-pressed="${!!cur && cur.name === c.name}">${n && n.poster ? `<img loading="lazy" src="${img(n.poster, 'w92')}" alt="">` : '<span class="ph"></span>'}<span><b>${esc(c.name)}</b><small>${esc(n ? n.title : c.q[1])}</small></span></button>`; }).join('') : '<p class="muted">No está en la lista: agregalo abajo en “¿No está en la lista?”.</p>';
+  };
   draw();
+  titlesOf(CHARS).then(() => { if (view === 'editar') drawCharList(); });
 }
+let chq = '';
 
 /* ===================== Ficha (modal) ===================== */
 let openKey = null, castOpen = false;
@@ -1744,6 +1730,7 @@ scObs.observe(document.body, { childList: true, subtree: true });
 
 /* ===================== Eventos ===================== */
 document.addEventListener('click', e => {
+  if (e.target.closest('[data-editchar]')) editFocus = 'char';
   const t = e.target.closest('[data-tick],[data-open],[data-want],[data-follow],[data-person],[data-close],[data-cpl],[data-accept],[data-remove],[data-invite],[data-addj],[data-jtab]');
   if (!t) { if (e.target.id === 'modal') closeDetail(); return; }
   if (t.dataset.tick) { e.preventDefault(); toggleWatched(t.dataset.tick); }
